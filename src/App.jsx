@@ -44,46 +44,107 @@ export default function ExpenseTracker() {
     }
   }, [user]);
 
-  // Inicializar reconocimiento de voz
+  // Inicializar reconocimiento de voz con más debugging
   useEffect(() => {
-    const recognitionInstance = initSpeechRecognition();
+    console.log('🎤 Inicializando reconocimiento de voz...');
 
-    if (recognitionInstance) {
+    // Verificar si el navegador soporta reconocimiento de voz
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      console.error('❌ El navegador NO SOPORTA reconocimiento de voz');
+      alert('Tu navegador no soporta reconocimiento de voz. Prueba con Chrome, Edge o Safari.');
+      return;
+    }
+
+    console.log('✅ Navegador soporta reconocimiento de voz');
+
+    try {
+      const recognitionInstance = new SpeechRecognition();
+
+      // Configuración
+      recognitionInstance.lang = 'es-ES';
+      recognitionInstance.continuous = false;
+      recognitionInstance.interimResults = false;
+      recognitionInstance.maxAlternatives = 1;
+
+      recognitionInstance.onstart = () => {
+        console.log('🎤 Reconocimiento de voz iniciado');
+      };
+
       recognitionInstance.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        processVoiceInput(transcript);
+        console.log('🎤 Resultado recibido:', event);
+        if (event.results && event.results[0] && event.results[0][0]) {
+          const transcript = event.results[0][0].transcript;
+          console.log('🎤 Texto transcrito:', transcript);
+          processVoiceInput(transcript);
+        } else {
+          console.error('❌ No se pudo obtener el texto transcrito');
+        }
         setIsListening(false);
       };
 
       recognitionInstance.onerror = (event) => {
-        console.error('Error en reconocimiento de voz:', event.error);
+        console.error('❌ Error en reconocimiento de voz:', event.error);
         setIsListening(false);
-        alert(`Error de voz: ${event.error}`);
+
+        // Mensajes más amigables para el usuario
+        let errorMessage = 'Error de voz';
+        switch (event.error) {
+          case 'no-speech':
+            errorMessage = 'No se detectó voz. Intenta nuevamente.';
+            break;
+          case 'audio-capture':
+            errorMessage = 'No se pudo acceder al micrófono. Verifica los permisos.';
+            break;
+          case 'not-allowed':
+            errorMessage = 'Permiso para usar el micrófono denegado.';
+            break;
+          case 'network':
+            errorMessage = 'Error de red. Revisa tu conexión.';
+            break;
+          default:
+            errorMessage = `Error: ${event.error}`;
+        }
+
+        alert(errorMessage);
       };
 
       recognitionInstance.onend = () => {
+        console.log('🎤 Reconocimiento de voz finalizado');
         setIsListening(false);
       };
 
       setRecognition(recognitionInstance);
+      console.log('✅ Reconocimiento de voz configurado correctamente');
+
+    } catch (error) {
+      console.error('❌ Error al crear instancia de reconocimiento:', error);
+      alert('Error al configurar el reconocimiento de voz. Recarga la página.');
     }
   }, []);
 
   // Procesamiento de voz inteligente
   const processVoiceInput = (transcript) => {
-    console.log("🎤 Voz detectada:", transcript);
+    console.log("🎤 Procesando voz:", transcript);
 
     if (!isAuthenticated) {
       alert("Debes iniciar sesión para guardar datos por voz.");
       return;
     }
 
-    const { type, amount, description, category } = processTranscript(transcript);
+    try {
+      const { type, amount, description, category } = processTranscript(transcript);
+      console.log('🎤 Resultado procesado:', { type, amount, description, category });
 
-    if (amount > 0) {
-      addTransaction(type, amount, description, category);
-    } else {
-      alert("No pude entender el monto. Intenta decir: 'Gasté 5000 en comida' o 'Ingresé 3000 por mi trabajo'");
+      if (amount > 0) {
+        addTransaction(type, amount, description, category);
+      } else {
+        alert("No pude entender el monto. Intenta decir: 'Gasté 5000 en comida' o 'Ingresé 3000 por mi trabajo'");
+      }
+    } catch (error) {
+      console.error('❌ Error procesando voz:', error);
+      alert('Error al procesar tu voz. Intenta nuevamente.');
     }
   };
 
@@ -117,8 +178,13 @@ export default function ExpenseTracker() {
   };
 
   const startListening = () => {
+    console.log('🎤 Intentando iniciar escucha...');
+    console.log('🎤 Estado reconocimiento:', recognition);
+    console.log('🎤 Usuario autenticado:', isAuthenticated);
+
     if (!recognition) {
-      alert("Tu navegador no soporta reconocimiento de voz.");
+      console.error('❌ No hay instancia de reconocimiento');
+      alert("El reconocimiento de voz no está disponible. Recarga la página.");
       return;
     }
 
@@ -128,13 +194,14 @@ export default function ExpenseTracker() {
     }
 
     try {
+      console.log('🎤 Iniciando escucha...');
       setIsListening(true);
       recognition.start();
-      console.log('🎤 Escuchando...');
+      console.log('🎤 Escuchando activado');
     } catch (error) {
-      console.error('Error al iniciar reconocimiento de voz:', error);
+      console.error('❌ Error al iniciar reconocimiento de voz:', error);
       setIsListening(false);
-      alert("Error al acceder al micrófono. Verifica los permisos.");
+      alert(`Error: ${error.message}. Recarga la página.`);
     }
   };
 
@@ -230,7 +297,20 @@ export default function ExpenseTracker() {
 
   // Si está cargando datos iniciales
   if (loading) {
-    return <div style={{ padding: 20, textAlign: 'center', color: theme.text }}>Cargando transacciones...</div>;
+    return (
+      <div style={{
+        padding: 20,
+        textAlign: 'center',
+        color: theme.text,
+        minHeight: '100vh',
+        background: theme.bg,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        Cargando transacciones...
+      </div>
+    );
   }
 
   return (
@@ -239,8 +319,9 @@ export default function ExpenseTracker() {
       background: theme.bg,
       fontFamily: '"Google Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       padding: '24px',
-      paddingBottom: '80px', // Reducido por el footer
-      transition: 'background 0.3s ease'
+      paddingBottom: '24px', // Padding normal, el footer estará después
+      transition: 'background 0.3s ease',
+      position: 'relative'
     }}>
       {/* Header with Hamburger Menu */}
       <div style={{
@@ -1126,43 +1207,12 @@ export default function ExpenseTracker() {
         </>
       )}
 
-      {/* Floating Voice Button */}
-      <button
-        onClick={startListening}
-        disabled={isListening}
-        style={{
-          position: 'fixed',
-          bottom: '80px', // Ajustado por el footer
-          right: '24px',
-          width: '64px',
-          height: '64px',
-          borderRadius: '50%',
-          background: isListening ? theme.textSecondary : theme.text,
-          border: 'none',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          transition: 'all 0.3s ease',
-          transform: isListening ? 'scale(1.05)' : 'scale(1)',
-          animation: isListening ? 'pulse 1.5s infinite' : 'none',
-          zIndex: 100
-        }}
-      >
-        <Mic size={26} color={theme.bg} strokeWidth={1.5} />
-      </button>
-
-      {/* Footer */}
-      <footer style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        width: '100%',
+      {/* Footer (NO FIJADO - está al final del contenido) */}
+      <div style={{
         background: theme.bg,
         borderTop: `1px solid ${theme.border}`,
-        padding: '20px 24px',
-        zIndex: 50,
+        padding: '30px 24px',
+        marginTop: '60px',
         transition: 'background 0.3s ease, border-color 0.3s ease'
       }}>
         <div style={{
@@ -1203,7 +1253,34 @@ export default function ExpenseTracker() {
             © 2026 • Financial Management Platform
           </div>
         </div>
-      </footer>
+      </div>
+
+      {/* Floating Voice Button */}
+      <button
+        onClick={startListening}
+        disabled={isListening}
+        style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          width: '64px',
+          height: '64px',
+          borderRadius: '50%',
+          background: isListening ? theme.textSecondary : theme.text,
+          border: 'none',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          transition: 'all 0.3s ease',
+          transform: isListening ? 'scale(1.05)' : 'scale(1)',
+          animation: isListening ? 'pulse 1.5s infinite' : 'none',
+          zIndex: 100
+        }}
+      >
+        <Mic size={26} color={theme.bg} strokeWidth={1.5} />
+      </button>
 
       {/* Pulse Animation */}
       <style>{`
@@ -1221,7 +1298,7 @@ export default function ExpenseTracker() {
       {isListening && (
         <div style={{
           position: 'fixed',
-          bottom: '160px', // Ajustado por el footer y botón de voz
+          bottom: '100px',
           left: '50%',
           transform: 'translateX(-50%)',
           background: theme.text,
