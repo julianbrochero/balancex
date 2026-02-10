@@ -251,13 +251,13 @@ export function processTranscript(transcript) {
             let token = tokens[i].replace(/[.,]/g, ''); // Limpiar token
             let val = extendedWordNumbers[token];
 
-            // Manejo de "y" (e.g., cuarenta y dos)
-            if (token === 'y' && isParsingNumber) continue;
-
-            // Manejo de dígitos sueltos mezclados (e.g., "2 mil")
+            // FIX: Si el token es un número directo (ej: "6" o "5500")
             if (val === undefined && /^\d+$/.test(token)) {
                 val = parseInt(token, 10);
             }
+
+            // Manejo de "y" (e.g., cuarenta y dos)
+            if (token === 'y' && isParsingNumber) continue;
 
             if (val !== undefined) {
                 isParsingNumber = true;
@@ -265,6 +265,10 @@ export function processTranscript(transcript) {
                     // Multiplicador MIL
                     // Si no hay nada acumulado (ej: "mil pesos"), asumimos 1000
                     let multiplier = (currentBlock === 0) ? 1 : currentBlock;
+
+                    // Si el usuario dijo "6 mil" y el token anterior era "6" (dígito), ya lo sumamos como 6.
+                    // Necesitamos multiplicar ese bloque por 1000.
+
                     finalAmount += multiplier * 1000;
                     currentBlock = 0;
                 } else if (val === 1000000) {
