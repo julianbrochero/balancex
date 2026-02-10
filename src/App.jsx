@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, Plus, TrendingUp, TrendingDown, Wallet, Menu, X, LogOut, User, Calendar, Trash2 } from 'lucide-react';
+import { Mic, Plus, TrendingUp, TrendingDown, Wallet, Menu, X, LogOut, User, Calendar, Trash2, Square } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { useTransactions } from './hooks/useTransactions';
 import { initSpeechRecognition, processTranscript } from './services/speechService';
@@ -34,6 +34,52 @@ export default function ExpenseTracker() {
 
   // Estado local para verificar autenticación
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Efecto para actualizar el theme-color del navegador cuando cambia darkMode
+  useEffect(() => {
+    // Actualizar el meta tag theme-color
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+    const appleStatusBarMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    const msNavButtonColorMeta = document.querySelector('meta[name="msapplication-navbutton-color"]');
+
+    if (darkMode) {
+      // Modo oscuro
+      document.documentElement.style.backgroundColor = '#1a1a1a';
+
+      if (themeColorMeta) {
+        themeColorMeta.setAttribute('content', '#1a1a1a');
+      }
+
+      if (appleStatusBarMeta) {
+        appleStatusBarMeta.setAttribute('content', 'black-translucent');
+      }
+
+      if (msNavButtonColorMeta) {
+        msNavButtonColorMeta.setAttribute('content', '#1a1a1a');
+      }
+
+      // Para Safari
+      document.body.style.backgroundColor = '#1a1a1a';
+    } else {
+      // Modo claro
+      document.documentElement.style.backgroundColor = '#ffffff';
+
+      if (themeColorMeta) {
+        themeColorMeta.setAttribute('content', '#ffffff');
+      }
+
+      if (appleStatusBarMeta) {
+        appleStatusBarMeta.setAttribute('content', 'default');
+      }
+
+      if (msNavButtonColorMeta) {
+        msNavButtonColorMeta.setAttribute('content', '#ffffff');
+      }
+
+      // Para Safari
+      document.body.style.backgroundColor = '#ffffff';
+    }
+  }, [darkMode]);
 
   // Sincronizar estado de autenticación
   useEffect(() => {
@@ -129,6 +175,11 @@ export default function ExpenseTracker() {
       setRecognition(recognitionInstance);
       console.log('✅ Reconocimiento de voz configurado correctamente');
 
+      return () => {
+        if (recognitionInstance) {
+          recognitionInstance.abort();
+        }
+      };
     } catch (error) {
       console.error('❌ Error al crear instancia de reconocimiento:', error);
       alert('Error al configurar el reconocimiento de voz. Recarga la página.');
@@ -230,6 +281,14 @@ export default function ExpenseTracker() {
       setIsListening(false);
       alert(`Error: ${error.message}. Recarga la página.`);
     }
+  };
+
+  const stopListening = () => {
+    if (recognition) {
+      recognition.stop();
+      console.log('🛑 Deteniendo reconocimiento manualmente');
+    }
+    setIsListening(false);
   };
 
   // Lógica de Auth Real
@@ -1319,8 +1378,7 @@ export default function ExpenseTracker() {
 
       {/* Floating Voice Button */}
       <button
-        onClick={startListening}
-        disabled={isListening}
+        onClick={isListening ? stopListening : startListening}
         style={{
           position: 'fixed',
           bottom: '24px',
@@ -1328,7 +1386,7 @@ export default function ExpenseTracker() {
           width: '64px',
           height: '64px',
           borderRadius: '50%',
-          background: isListening ? theme.textSecondary : theme.text,
+          background: isListening ? '#ea4335' : theme.text, // Rojo cuando escucha
           border: 'none',
           boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
           display: 'flex',
@@ -1341,7 +1399,11 @@ export default function ExpenseTracker() {
           zIndex: 100
         }}
       >
-        <Mic size={26} color={theme.bg} strokeWidth={1.5} />
+        {isListening ? (
+          <Square size={24} color="#ffffff" fill="#ffffff" />
+        ) : (
+          <Mic size={26} color={theme.bg} strokeWidth={1.5} />
+        )}
       </button>
 
       {/* Pulse Animation */}
@@ -1365,15 +1427,33 @@ export default function ExpenseTracker() {
           transform: 'translateX(-50%)',
           background: theme.text,
           color: theme.bg,
-          padding: '12px 24px',
+          padding: '12px 16px 12px 24px',
           borderRadius: '24px',
           fontSize: '13px',
           boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
           zIndex: 1000,
           fontWeight: '400',
-          letterSpacing: '0.1px'
+          letterSpacing: '0.1px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
         }}>
           Escuchando... Di "ingreso" o "egreso" + monto
+          <button
+            onClick={stopListening}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              marginLeft: '10px',
+              padding: '4px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <X size={14} color={theme.bg} />
+          </button>
         </div>
       )}
     </div>
