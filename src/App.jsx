@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Mic, Plus, TrendingUp, TrendingDown, Wallet, Menu, X, LogOut, User, Calendar, Trash2 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { useTransactions } from './hooks/useTransactions';
@@ -16,6 +16,7 @@ export default function ExpenseTracker() {
   const [selectedPeriod, setSelectedPeriod] = useState('mes');
   const [currentPage, setCurrentPage] = useState('home');
   const [darkMode, setDarkMode] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(10);
 
   // Theme colors basado en modo oscuro/claro
   const theme = {
@@ -43,6 +44,14 @@ export default function ExpenseTracker() {
       setIsAuthenticated(false);
     }
   }, [user]);
+
+  // Ref para mantener actualizada la función processVoiceInput sin reiniciar el reconocimiento
+  const processVoiceInputRef = useRef(null);
+
+  // Actualizar el ref en cada render
+  useEffect(() => {
+    processVoiceInputRef.current = processVoiceInput;
+  });
 
   // Inicializar reconocimiento de voz con más debugging
   useEffect(() => {
@@ -77,7 +86,9 @@ export default function ExpenseTracker() {
         if (event.results && event.results[0] && event.results[0][0]) {
           const transcript = event.results[0][0].transcript;
           console.log('🎤 Texto transcrito:', transcript);
-          processVoiceInput(transcript);
+          if (processVoiceInputRef.current) {
+            processVoiceInputRef.current(transcript);
+          }
         } else {
           console.error('❌ No se pudo obtener el texto transcrito');
         }
@@ -125,11 +136,16 @@ export default function ExpenseTracker() {
   }, []);
 
   // Procesamiento de voz inteligente
-  const processVoiceInput = (transcript) => {
+  const processVoiceInput = async (transcript) => {
     console.log("🎤 Procesando voz:", transcript);
 
-    if (!isAuthenticated) {
+    // Verificar sesión directamente
+    const { data: { session } } = await supabase.auth.getSession();
+    const currentUser = session?.user || user;
+
+    if (!currentUser) {
       alert("Debes iniciar sesión para guardar datos por voz.");
+      setShowMenu(true);
       return;
     }
 
@@ -150,7 +166,11 @@ export default function ExpenseTracker() {
 
   // Función para agregar transacción
   const addTransaction = async (type, amount, description, category = 'otro') => {
-    if (!isAuthenticated) {
+    // Verificar sesión directamente
+    const { data: { session } } = await supabase.auth.getSession();
+    const currentUser = session?.user || user;
+
+    if (!currentUser) {
       alert("Debes iniciar sesión para guardar datos.");
       return;
     }
@@ -177,10 +197,16 @@ export default function ExpenseTracker() {
     }
   };
 
-  const startListening = () => {
+  const startListening = async () => {
     console.log('🎤 Intentando iniciar escucha...');
     console.log('🎤 Estado reconocimiento:', recognition);
-    console.log('🎤 Usuario autenticado:', isAuthenticated);
+
+    // Verificar sesión directamente con Supabase para asegurar
+    const { data: { session } } = await supabase.auth.getSession();
+    const currentUser = session?.user || user;
+    const isUserAuthenticated = !!currentUser;
+
+    console.log('🎤 Usuario autenticado (Check directo):', isUserAuthenticated);
 
     if (!recognition) {
       console.error('❌ No hay instancia de reconocimiento');
@@ -188,8 +214,9 @@ export default function ExpenseTracker() {
       return;
     }
 
-    if (!isAuthenticated) {
-      alert("⚠️ Debes iniciar sesión para usar el micrófono.");
+    if (!isUserAuthenticated) {
+      alert("⚠️ No se detecta una sesión activa. Por favor abre el menú (arriba a la derecha) y verifica que has iniciado sesión con Google.");
+      setShowMenu(true); // Abrir menú automáticamente para ayudar al usuario
       return;
     }
 
@@ -316,10 +343,12 @@ export default function ExpenseTracker() {
   return (
     <div style={{
       minHeight: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
       background: theme.bg,
       fontFamily: '"Google Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       padding: '24px',
-      paddingBottom: '24px', // Padding normal, el footer estará después
+      paddingBottom: '0',
       transition: 'background 0.3s ease',
       position: 'relative'
     }}>
@@ -667,545 +696,578 @@ export default function ExpenseTracker() {
         />
       )}
 
-      {/* Main Content */}
-      {currentPage === 'home' ? (
-        <>
-          {/* Balance Card */}
-          <div style={{
-            background: theme.bg,
-            borderRadius: '0px',
-            padding: '0px',
-            marginBottom: '48px'
-          }}>
+      {/* Main Content Wrapper */}
+      <div style={{ flex: 1, width: '100%' }}>
+        {/* Main Content */}
+        {currentPage === 'home' ? (
+          <>
+            {/* Balance Card */}
             <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              marginBottom: '12px'
+              background: theme.bg,
+              borderRadius: '0px',
+              padding: '0px',
+              marginBottom: '48px'
             }}>
-              <Wallet size={24} color={theme.text} strokeWidth={1.5} />
-              <span style={{
-                fontSize: '14px',
-                color: theme.textSecondary,
-                fontWeight: '400',
-                letterSpacing: '0.2px'
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                marginBottom: '12px'
               }}>
-                Balance Total
-              </span>
-            </div>
-            <div style={{
-              fontSize: '64px',
-              fontWeight: '300',
-              color: theme.text,
-              letterSpacing: '-2px',
-              marginTop: '8px',
-              lineHeight: '1'
-            }}>
-              ${balance.toFixed(2)}
-            </div>
-
-            {/* Ingresos y Egresos */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '32px',
-              marginTop: '32px'
-            }}>
-              <div>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  marginBottom: '8px'
-                }}>
-                  <TrendingUp size={20} color="#34a853" strokeWidth={2} />
-                  <span style={{
-                    fontSize: '13px',
-                    color: theme.textSecondary,
-                    fontWeight: '400',
-                    letterSpacing: '0.2px'
-                  }}>
-                    Ingresos
-                  </span>
-                </div>
-                <div style={{
-                  fontSize: '28px',
-                  fontWeight: '400',
-                  color: theme.text,
-                  letterSpacing: '-0.5px'
-                }}>
-                  ${totalIngresos.toFixed(2)}
-                </div>
-              </div>
-              <div>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  marginBottom: '8px'
-                }}>
-                  <TrendingDown size={20} color="#ea4335" strokeWidth={2} />
-                  <span style={{
-                    fontSize: '13px',
-                    color: theme.textSecondary,
-                    fontWeight: '400',
-                    letterSpacing: '0.2px'
-                  }}>
-                    Egresos
-                  </span>
-                </div>
-                <div style={{
-                  fontSize: '28px',
-                  fontWeight: '400',
-                  color: theme.text,
-                  letterSpacing: '-0.5px'
-                }}>
-                  ${totalEgresos.toFixed(2)}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Transactions List */}
-          <div>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '24px'
-            }}>
-              <h2 style={{
-                fontSize: '20px',
-                fontWeight: '400',
-                color: theme.text,
-                margin: 0,
-                letterSpacing: '-0.2px'
-              }}>
-                Movimientos
-              </h2>
-              <button
-                onClick={() => setShowManualInput(!showManualInput)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  padding: '8px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
+                <Wallet size={24} color={theme.text} strokeWidth={1.5} />
+                <span style={{
+                  fontSize: '14px',
                   color: theme.textSecondary,
-                  fontSize: '13px',
-                  fontWeight: '400',
-                  transition: 'opacity 0.2s'
-                }}
-                onMouseEnter={(e) => e.target.style.opacity = '0.6'}
-                onMouseLeave={(e) => e.target.style.opacity = '1'}
-              >
-                <Plus size={18} strokeWidth={1.5} />
-                <span>Agregar</span>
-              </button>
-            </div>
-
-            {/* Manual Input Form */}
-            {showManualInput && (
-              <form onSubmit={handleManualSubmit} style={{
-                background: 'transparent',
-                padding: '0',
-                marginBottom: '32px',
-                borderBottom: `1px solid ${theme.border}`,
-                paddingBottom: '24px'
-              }}>
-                <div style={{
-                  display: 'flex',
-                  gap: '16px',
-                  marginBottom: '20px'
-                }}>
-                  <button
-                    type="button"
-                    onClick={() => setManualType('ingreso')}
-                    style={{
-                      flex: 1,
-                      padding: '14px',
-                      background: 'transparent',
-                      color: manualType === 'ingreso' ? theme.text : theme.textTertiary,
-                      border: 'none',
-                      borderBottom: manualType === 'ingreso' ? `2px solid ${theme.text}` : '2px solid transparent',
-                      fontSize: '14px',
-                      fontWeight: manualType === 'ingreso' ? '500' : '400',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      letterSpacing: '0.1px'
-                    }}
-                  >
-                    Ingreso
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setManualType('egreso')}
-                    style={{
-                      flex: 1,
-                      padding: '14px',
-                      background: 'transparent',
-                      color: manualType === 'egreso' ? theme.text : theme.textTertiary,
-                      border: 'none',
-                      borderBottom: manualType === 'egreso' ? `2px solid ${theme.text}` : '2px solid transparent',
-                      fontSize: '14px',
-                      fontWeight: manualType === 'egreso' ? '500' : '400',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      letterSpacing: '0.1px'
-                    }}
-                  >
-                    Egreso
-                  </button>
-                </div>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  placeholder="0.00"
-                  value={manualAmount}
-                  onChange={(e) => setManualAmount(e.target.value)}
-                  step="0.01"
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '16px 0',
-                    marginBottom: '16px',
-                    border: 'none',
-                    borderBottom: `1px solid ${theme.borderStrong}`,
-                    fontSize: '32px',
-                    fontFamily: 'inherit',
-                    fontWeight: '300',
-                    outline: 'none',
-                    background: 'transparent',
-                    color: theme.text,
-                    boxSizing: 'border-box',
-                    letterSpacing: '-0.5px'
-                  }}
-                />
-                <input
-                  type="text"
-                  placeholder="Descripción (opcional)"
-                  value={manualDescription}
-                  onChange={(e) => setManualDescription(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '14px 0',
-                    marginBottom: '20px',
-                    border: 'none',
-                    borderBottom: `1px solid ${theme.borderStrong}`,
-                    fontSize: '15px',
-                    fontFamily: 'inherit',
-                    fontWeight: '400',
-                    outline: 'none',
-                    background: 'transparent',
-                    color: theme.text,
-                    boxSizing: 'border-box',
-                    letterSpacing: '-0.1px'
-                  }}
-                />
-                <div style={{
-                  display: 'flex',
-                  gap: '12px',
-                  justifyContent: 'flex-end'
-                }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowManualInput(false);
-                      setManualAmount('');
-                      setManualDescription('');
-                    }}
-                    style={{
-                      padding: '12px 24px',
-                      background: 'transparent',
-                      color: theme.textSecondary,
-                      border: 'none',
-                      fontSize: '14px',
-                      fontWeight: '400',
-                      cursor: 'pointer',
-                      transition: 'opacity 0.2s',
-                      letterSpacing: '0.1px'
-                    }}
-                    onMouseEnter={(e) => e.target.style.opacity = '0.6'}
-                    onMouseLeave={(e) => e.target.style.opacity = '1'}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    style={{
-                      padding: '12px 32px',
-                      background: theme.text,
-                      color: theme.bg,
-                      border: 'none',
-                      fontSize: '14px',
-                      fontWeight: '500',
-                      cursor: 'pointer',
-                      transition: 'opacity 0.2s',
-                      letterSpacing: '0.2px'
-                    }}
-                    onMouseEnter={(e) => e.target.style.opacity = '0.85'}
-                    onMouseLeave={(e) => e.target.style.opacity = '1'}
-                  >
-                    Guardar
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {!isAuthenticated ? (
-              <div style={{ textAlign: 'center', marginTop: 50, color: theme.textSecondary }}>
-                Inicia sesión para ver tus movimientos
-              </div>
-            ) : transactions.length === 0 ? (
-              <div style={{
-                textAlign: 'center',
-                padding: '64px 24px',
-                color: theme.textSecondary,
-                fontSize: '14px'
-              }}>
-                <p style={{ margin: 0, fontWeight: '400' }}>No hay movimientos aún</p>
-                <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: theme.textTertiary }}>
-                  Presiona el micrófono o agrega manualmente
-                </p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                {filteredTransactions.map((transaction) => (
-                  <div
-                    key={transaction.id}
-                    style={{
-                      background: theme.bg,
-                      borderBottom: `1px solid ${theme.border}`,
-                      padding: '20px 0',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}
-                  >
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      {transaction.type === 'ingreso' ? (
-                        <TrendingUp size={18} color="#34a853" strokeWidth={2} />
-                      ) : (
-                        <TrendingDown size={18} color="#ea4335" strokeWidth={2} />
-                      )}
-                      <div>
-                        <div style={{
-                          fontSize: '15px',
-                          color: theme.text,
-                          marginBottom: '4px',
-                          fontWeight: '400',
-                          letterSpacing: '-0.1px'
-                        }}>
-                          {transaction.description}
-                        </div>
-                        <div style={{
-                          fontSize: '12px',
-                          color: theme.textTertiary,
-                          letterSpacing: '0.2px'
-                        }}>
-                          {formatDate(transaction.created_at)}
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{
-                        fontSize: '18px',
-                        fontWeight: '400',
-                        color: theme.text,
-                        letterSpacing: '-0.3px'
-                      }}>
-                        {transaction.type === 'ingreso' ? '+' : '−'}${transaction.amount.toFixed(2)}
-                      </div>
-                      <button onClick={() => deleteTransaction(transaction.id)} style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}>
-                        <Trash2 size={16} color={theme.textTertiary} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </>
-      ) : (
-        <>
-          {/* Resumen Page */}
-          <div style={{
-            paddingBottom: '24px',
-            marginBottom: '32px',
-            borderBottom: `1px solid ${theme.border}`
-          }}>
-            <div style={{
-              display: 'flex',
-              gap: '12px',
-              overflowX: 'auto',
-              paddingBottom: '4px'
-            }}>
-              {[
-                { value: 'dia', label: 'Hoy' },
-                { value: 'mes', label: 'Este mes' },
-                { value: 'mes-pasado', label: 'Mes pasado' },
-                { value: 'año', label: 'Este año' }
-              ].map(period => (
-                <button
-                  key={period.value}
-                  onClick={() => setSelectedPeriod(period.value)}
-                  style={{
-                    padding: '12px 24px',
-                    background: selectedPeriod === period.value ? theme.text : 'transparent',
-                    color: selectedPeriod === period.value ? theme.bg : theme.textSecondary,
-                    border: 'none',
-                    borderBottom: selectedPeriod === period.value ? 'none' : `1px solid ${theme.borderStrong}`,
-                    fontSize: '14px',
-                    fontWeight: selectedPeriod === period.value ? '500' : '400',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    letterSpacing: '0.1px',
-                    whiteSpace: 'nowrap'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (selectedPeriod !== period.value) {
-                      e.currentTarget.style.color = theme.text;
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (selectedPeriod !== period.value) {
-                      e.currentTarget.style.color = theme.textSecondary;
-                    }
-                  }}
-                >
-                  {period.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Period Summary */}
-          <div style={{
-            marginBottom: '48px'
-          }}>
-            <div style={{
-              fontSize: '14px',
-              color: theme.textSecondary,
-              marginBottom: '16px',
-              fontWeight: '400',
-              letterSpacing: '0.2px'
-            }}>
-              {getPeriodLabel()}
-            </div>
-
-            <div style={{
-              fontSize: '56px',
-              fontWeight: '300',
-              color: theme.text,
-              letterSpacing: '-2px',
-              marginBottom: '40px',
-              lineHeight: '1'
-            }}>
-              ${balance.toFixed(2)}
-            </div>
-
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '32px'
-            }}>
-              <div style={{
-                paddingBottom: '24px',
-                borderBottom: `1px solid ${theme.border}`
-              }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  marginBottom: '12px'
-                }}>
-                  <TrendingUp size={24} color="#34a853" strokeWidth={2} />
-                  <span style={{
-                    fontSize: '14px',
-                    color: theme.textSecondary,
-                    fontWeight: '400',
-                    letterSpacing: '0.2px'
-                  }}>
-                    Ingresos totales
-                  </span>
-                </div>
-                <div style={{
-                  fontSize: '40px',
-                  fontWeight: '300',
-                  color: theme.text,
-                  letterSpacing: '-1px'
-                }}>
-                  ${totalIngresos.toFixed(2)}
-                </div>
-              </div>
-
-              <div style={{
-                paddingBottom: '24px',
-                borderBottom: `1px solid ${theme.border}`
-              }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  marginBottom: '12px'
-                }}>
-                  <TrendingDown size={24} color="#ea4335" strokeWidth={2} />
-                  <span style={{
-                    fontSize: '14px',
-                    color: theme.textSecondary,
-                    fontWeight: '400',
-                    letterSpacing: '0.2px'
-                  }}>
-                    Egresos totales
-                  </span>
-                </div>
-                <div style={{
-                  fontSize: '40px',
-                  fontWeight: '300',
-                  color: theme.text,
-                  letterSpacing: '-1px'
-                }}>
-                  ${totalEgresos.toFixed(2)}
-                </div>
-              </div>
-
-              <div>
-                <div style={{
-                  fontSize: '13px',
-                  color: theme.textSecondary,
-                  marginBottom: '16px',
                   fontWeight: '400',
                   letterSpacing: '0.2px'
                 }}>
-                  Transacciones en este período: {filteredTransactions.length}
+                  Balance Total
+                </span>
+              </div>
+              <div style={{
+                fontSize: '54px',
+                fontWeight: '300',
+                color: theme.text,
+                letterSpacing: '-2px',
+                marginTop: '8px',
+                lineHeight: '1'
+              }}>
+                ${balance.toFixed(2)}
+              </div>
+
+              {/* Ingresos y Egresos */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '32px',
+                marginTop: '32px'
+              }}>
+                <div>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginBottom: '8px'
+                  }}>
+                    <TrendingUp size={20} color="#34a853" strokeWidth={2} />
+                    <span style={{
+                      fontSize: '13px',
+                      color: theme.textSecondary,
+                      fontWeight: '400',
+                      letterSpacing: '0.2px'
+                    }}>
+                      Ingresos
+                    </span>
+                  </div>
+                  <div style={{
+                    fontSize: '28px',
+                    fontWeight: '400',
+                    color: theme.text,
+                    letterSpacing: '-0.5px'
+                  }}>
+                    ${totalIngresos.toFixed(2)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginBottom: '8px'
+                  }}>
+                    <TrendingDown size={20} color="#ea4335" strokeWidth={2} />
+                    <span style={{
+                      fontSize: '13px',
+                      color: theme.textSecondary,
+                      fontWeight: '400',
+                      letterSpacing: '0.2px'
+                    }}>
+                      Egresos
+                    </span>
+                  </div>
+                  <div style={{
+                    fontSize: '28px',
+                    fontWeight: '400',
+                    color: theme.text,
+                    letterSpacing: '-0.5px'
+                  }}>
+                    ${totalEgresos.toFixed(2)}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Back Button */}
-          <button
-            onClick={() => setCurrentPage('home')}
-            style={{
-              padding: '14px 28px',
-              background: theme.text,
-              color: theme.bg,
-              border: 'none',
-              fontSize: '14px',
-              fontWeight: '500',
-              cursor: 'pointer',
-              transition: 'opacity 0.2s',
-              letterSpacing: '0.2px'
-            }}
-            onMouseEnter={(e) => e.target.style.opacity = '0.85'}
-            onMouseLeave={(e) => e.target.style.opacity = '1'}
-          >
-            Volver al inicio
-          </button>
-        </>
-      )}
+            {/* Transactions List */}
+            <div>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '24px'
+              }}>
+                <h2 style={{
+                  fontSize: '20px',
+                  fontWeight: '400',
+                  color: theme.text,
+                  margin: 0,
+                  letterSpacing: '-0.2px'
+                }}>
+                  Movimientos
+                </h2>
+                <button
+                  onClick={() => setShowManualInput(!showManualInput)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    padding: '8px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    color: theme.textSecondary,
+                    fontSize: '13px',
+                    fontWeight: '400',
+                    transition: 'opacity 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.target.style.opacity = '0.6'}
+                  onMouseLeave={(e) => e.target.style.opacity = '1'}
+                >
+                  <Plus size={18} strokeWidth={1.5} />
+                  <span>Agregar</span>
+                </button>
+              </div>
+
+              {/* Manual Input Form */}
+              {showManualInput && (
+                <form onSubmit={handleManualSubmit} style={{
+                  background: 'transparent',
+                  padding: '0',
+                  marginBottom: '32px',
+                  borderBottom: `1px solid ${theme.border}`,
+                  paddingBottom: '24px'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    gap: '16px',
+                    marginBottom: '20px'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => setManualType('ingreso')}
+                      style={{
+                        flex: 1,
+                        padding: '14px',
+                        background: 'transparent',
+                        color: manualType === 'ingreso' ? theme.text : theme.textTertiary,
+                        border: 'none',
+                        borderBottom: manualType === 'ingreso' ? `2px solid ${theme.text}` : '2px solid transparent',
+                        fontSize: '14px',
+                        fontWeight: manualType === 'ingreso' ? '500' : '400',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        letterSpacing: '0.1px'
+                      }}
+                    >
+                      Ingreso
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setManualType('egreso')}
+                      style={{
+                        flex: 1,
+                        padding: '14px',
+                        background: 'transparent',
+                        color: manualType === 'egreso' ? theme.text : theme.textTertiary,
+                        border: 'none',
+                        borderBottom: manualType === 'egreso' ? `2px solid ${theme.text}` : '2px solid transparent',
+                        fontSize: '14px',
+                        fontWeight: manualType === 'egreso' ? '500' : '400',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        letterSpacing: '0.1px'
+                      }}
+                    >
+                      Egreso
+                    </button>
+                  </div>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={manualAmount}
+                    onChange={(e) => setManualAmount(e.target.value)}
+                    step="0.01"
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '16px 0',
+                      marginBottom: '16px',
+                      border: 'none',
+                      borderBottom: `1px solid ${theme.borderStrong}`,
+                      fontSize: '32px',
+                      fontFamily: 'inherit',
+                      fontWeight: '300',
+                      outline: 'none',
+                      background: 'transparent',
+                      color: theme.text,
+                      boxSizing: 'border-box',
+                      letterSpacing: '-0.5px'
+                    }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Descripción (opcional)"
+                    value={manualDescription}
+                    onChange={(e) => setManualDescription(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '14px 0',
+                      marginBottom: '20px',
+                      border: 'none',
+                      borderBottom: `1px solid ${theme.borderStrong}`,
+                      fontSize: '15px',
+                      fontFamily: 'inherit',
+                      fontWeight: '400',
+                      outline: 'none',
+                      background: 'transparent',
+                      color: theme.text,
+                      boxSizing: 'border-box',
+                      letterSpacing: '-0.1px'
+                    }}
+                  />
+                  <div style={{
+                    display: 'flex',
+                    gap: '12px',
+                    justifyContent: 'flex-end'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowManualInput(false);
+                        setManualAmount('');
+                        setManualDescription('');
+                      }}
+                      style={{
+                        padding: '12px 24px',
+                        background: 'transparent',
+                        color: theme.textSecondary,
+                        border: 'none',
+                        fontSize: '14px',
+                        fontWeight: '400',
+                        cursor: 'pointer',
+                        transition: 'opacity 0.2s',
+                        letterSpacing: '0.1px'
+                      }}
+                      onMouseEnter={(e) => e.target.style.opacity = '0.6'}
+                      onMouseLeave={(e) => e.target.style.opacity = '1'}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      style={{
+                        padding: '12px 32px',
+                        background: theme.text,
+                        color: theme.bg,
+                        border: 'none',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        cursor: 'pointer',
+                        transition: 'opacity 0.2s',
+                        letterSpacing: '0.2px'
+                      }}
+                      onMouseEnter={(e) => e.target.style.opacity = '0.85'}
+                      onMouseLeave={(e) => e.target.style.opacity = '1'}
+                    >
+                      Guardar
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {!isAuthenticated ? (
+                <div style={{ textAlign: 'center', marginTop: 50, color: theme.textSecondary }}>
+                  Inicia sesión para ver tus movimientos
+                </div>
+              ) : transactions.length === 0 ? (
+                <div style={{
+                  textAlign: 'center',
+                  padding: '64px 24px',
+                  color: theme.textSecondary,
+                  fontSize: '14px'
+                }}>
+                  <p style={{ margin: 0, fontWeight: '400' }}>No hay movimientos aún</p>
+                  <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: theme.textTertiary }}>
+                    Presiona el micrófono o agrega manualmente
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                  {filteredTransactions.slice(0, visibleCount).map((transaction) => (
+                    <div
+                      key={transaction.id}
+                      style={{
+                        background: theme.bg,
+                        borderBottom: `1px solid ${theme.border}`,
+                        padding: '20px 0',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        {transaction.type === 'ingreso' ? (
+                          <TrendingUp size={18} color="#34a853" strokeWidth={2} />
+                        ) : (
+                          <TrendingDown size={18} color="#ea4335" strokeWidth={2} />
+                        )}
+                        <div>
+                          <div style={{
+                            fontSize: '15px',
+                            color: theme.text,
+                            marginBottom: '4px',
+                            fontWeight: '400',
+                            letterSpacing: '-0.1px'
+                          }}>
+                            {transaction.description}
+                          </div>
+                          <div style={{
+                            fontSize: '12px',
+                            color: theme.textTertiary,
+                            letterSpacing: '0.2px'
+                          }}>
+                            {formatDate(transaction.created_at)}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{
+                          fontSize: '18px',
+                          fontWeight: '400',
+                          color: theme.text,
+                          letterSpacing: '-0.3px'
+                        }}>
+                          {transaction.type === 'ingreso' ? '+' : '−'}${transaction.amount.toFixed(2)}
+                        </div>
+                        <button onClick={() => deleteTransaction(transaction.id)} style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}>
+                          <Trash2 size={16} color={theme.textTertiary} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {visibleCount < filteredTransactions.length && (
+                    <button
+                      onClick={() => setVisibleCount(prev => prev + 10)}
+                      style={{
+                        marginTop: '24px',
+                        padding: '14px',
+                        background: 'transparent',
+                        border: `1px solid ${theme.borderStrong}`,
+                        color: theme.textSecondary,
+                        width: '100%',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        borderRadius: '8px',
+                        transition: 'all 0.2s',
+                        fontWeight: '500'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.background = theme.cardBg;
+                        e.target.style.color = theme.text;
+                        e.target.style.borderColor = theme.text;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.background = 'transparent';
+                        e.target.style.color = theme.textSecondary;
+                        e.target.style.borderColor = theme.borderStrong;
+                      }}
+                    >
+                      Ver más movimientos ({filteredTransactions.length - visibleCount} restantes)
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Resumen Page */}
+            <div style={{
+              paddingBottom: '24px',
+              marginBottom: '32px',
+              borderBottom: `1px solid ${theme.border}`
+            }}>
+              <div style={{
+                display: 'flex',
+                gap: '12px',
+                overflowX: 'auto',
+                paddingBottom: '4px'
+              }}>
+                {[
+                  { value: 'dia', label: 'Hoy' },
+                  { value: 'mes', label: 'Este mes' },
+                  { value: 'mes-pasado', label: 'Mes pasado' },
+                  { value: 'año', label: 'Este año' }
+                ].map(period => (
+                  <button
+                    key={period.value}
+                    onClick={() => setSelectedPeriod(period.value)}
+                    style={{
+                      padding: '12px 24px',
+                      background: selectedPeriod === period.value ? theme.text : 'transparent',
+                      color: selectedPeriod === period.value ? theme.bg : theme.textSecondary,
+                      border: 'none',
+                      borderBottom: selectedPeriod === period.value ? 'none' : `1px solid ${theme.borderStrong}`,
+                      fontSize: '14px',
+                      fontWeight: selectedPeriod === period.value ? '500' : '400',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      letterSpacing: '0.1px',
+                      whiteSpace: 'nowrap'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (selectedPeriod !== period.value) {
+                        e.currentTarget.style.color = theme.text;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (selectedPeriod !== period.value) {
+                        e.currentTarget.style.color = theme.textSecondary;
+                      }
+                    }}
+                  >
+                    {period.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Period Summary */}
+            <div style={{
+              marginBottom: '48px'
+            }}>
+              <div style={{
+                fontSize: '14px',
+                color: theme.textSecondary,
+                marginBottom: '16px',
+                fontWeight: '400',
+                letterSpacing: '0.2px'
+              }}>
+                {getPeriodLabel()}
+              </div>
+
+              <div style={{
+                fontSize: '48px',
+                fontWeight: '300',
+                color: theme.text,
+                letterSpacing: '-2px',
+                marginBottom: '40px',
+                lineHeight: '1'
+              }}>
+                ${balance.toFixed(2)}
+              </div>
+
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '32px'
+              }}>
+                <div style={{
+                  paddingBottom: '24px',
+                  borderBottom: `1px solid ${theme.border}`
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginBottom: '12px'
+                  }}>
+                    <TrendingUp size={24} color="#34a853" strokeWidth={2} />
+                    <span style={{
+                      fontSize: '14px',
+                      color: theme.textSecondary,
+                      fontWeight: '400',
+                      letterSpacing: '0.2px'
+                    }}>
+                      Ingresos totales
+                    </span>
+                  </div>
+                  <div style={{
+                    fontSize: '40px',
+                    fontWeight: '300',
+                    color: theme.text,
+                    letterSpacing: '-1px'
+                  }}>
+                    ${totalIngresos.toFixed(2)}
+                  </div>
+                </div>
+
+                <div style={{
+                  paddingBottom: '24px',
+                  borderBottom: `1px solid ${theme.border}`
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginBottom: '12px'
+                  }}>
+                    <TrendingDown size={24} color="#ea4335" strokeWidth={2} />
+                    <span style={{
+                      fontSize: '14px',
+                      color: theme.textSecondary,
+                      fontWeight: '400',
+                      letterSpacing: '0.2px'
+                    }}>
+                      Egresos totales
+                    </span>
+                  </div>
+                  <div style={{
+                    fontSize: '40px',
+                    fontWeight: '300',
+                    color: theme.text,
+                    letterSpacing: '-1px'
+                  }}>
+                    ${totalEgresos.toFixed(2)}
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{
+                    fontSize: '13px',
+                    color: theme.textSecondary,
+                    marginBottom: '16px',
+                    fontWeight: '400',
+                    letterSpacing: '0.2px'
+                  }}>
+                    Transacciones en este período: {filteredTransactions.length}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Back Button */}
+            <button
+              onClick={() => setCurrentPage('home')}
+              style={{
+                padding: '14px 28px',
+                background: theme.text,
+                color: theme.bg,
+                border: 'none',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'opacity 0.2s',
+                letterSpacing: '0.2px'
+              }}
+              onMouseEnter={(e) => e.target.style.opacity = '0.85'}
+              onMouseLeave={(e) => e.target.style.opacity = '1'}
+            >
+              Volver al inicio
+            </button>
+          </>
+        )}
+      </div>
 
       {/* Footer (NO FIJADO - está al final del contenido) */}
       <div style={{
