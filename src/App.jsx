@@ -15,7 +15,11 @@ export default function ExpenseTracker() {
   const [showMenu, setShowMenu] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('mes');
   const [currentPage, setCurrentPage] = useState('home');
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('darkMode');
+    // Por defecto es false (modo claro) para ignorar el sistema del celular
+    return saved === 'true' ? true : false;
+  });
   const [visibleCount, setVisibleCount] = useState(10);
 
   // Theme colors basado en modo oscuro/claro
@@ -37,17 +41,26 @@ export default function ExpenseTracker() {
 
   // Efecto para actualizar el theme-color del navegador cuando cambia darkMode
   useEffect(() => {
-    // Actualizar el meta tag theme-color
+    // Guardar preferencia
+    localStorage.setItem('darkMode', darkMode);
+
+    // Actualizar el meta tag theme-color y color-scheme
     const themeColorMeta = document.querySelector('meta[name="theme-color"]');
-    const appleStatusBarMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    const colorSchemeMeta = document.querySelector('meta[name="color-scheme"]');
+    const appleStatusBarMeta = document.querySelector('#apple-status-bar-meta');
     const msNavButtonColorMeta = document.querySelector('meta[name="msapplication-navbutton-color"]');
 
     if (darkMode) {
       // Modo oscuro
       document.documentElement.style.backgroundColor = '#1a1a1a';
+      document.documentElement.style.colorScheme = 'dark';
 
       if (themeColorMeta) {
         themeColorMeta.setAttribute('content', '#1a1a1a');
+      }
+
+      if (colorSchemeMeta) {
+        colorSchemeMeta.setAttribute('content', 'dark');
       }
 
       if (appleStatusBarMeta) {
@@ -63,9 +76,14 @@ export default function ExpenseTracker() {
     } else {
       // Modo claro
       document.documentElement.style.backgroundColor = '#ffffff';
+      document.documentElement.style.colorScheme = 'light';
 
       if (themeColorMeta) {
         themeColorMeta.setAttribute('content', '#ffffff');
+      }
+
+      if (colorSchemeMeta) {
+        colorSchemeMeta.setAttribute('content', 'light');
       }
 
       if (appleStatusBarMeta) {
@@ -108,7 +126,19 @@ export default function ExpenseTracker() {
 
     if (!SpeechRecognition) {
       console.error('❌ El navegador NO SOPORTA reconocimiento de voz');
-      alert('Tu navegador no soporta reconocimiento de voz. Prueba con Chrome, Edge o Safari.');
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isGSA = /GSA/.test(navigator.userAgent);
+
+      let msg = 'Tu navegador no soporta reconocimiento de voz.';
+      if (isIOS && isGSA) {
+        msg = 'La app de Google en iPhone no permite usar el micrófono. Por favor, abre esta página en Safari para usar la voz.';
+      } else if (isIOS) {
+        msg = 'Para usar el micrófono en iPhone, te recomendamos usar Safari.';
+      } else {
+        msg = 'Prueba con Chrome o Edge para usar el reconocimiento de voz.';
+      }
+
+      alert(msg);
       return;
     }
 
@@ -310,6 +340,18 @@ export default function ExpenseTracker() {
 
     try {
       console.log('🎤 Iniciando escucha...');
+
+      // Intentar "activar" el audio en iOS Google App (a veces ayuda)
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+          const ctx = new AudioContext();
+          if (ctx.state === 'suspended') ctx.resume();
+        }
+      } catch (e) {
+        console.log('AudioContext error (normal):', e);
+      }
+
       setIsListening(true);
       recognition.start();
       console.log('🎤 Escuchando activado');
@@ -1430,22 +1472,24 @@ export default function ExpenseTracker() {
         disabled={isListening}
         style={{
           position: 'fixed',
-          bottom: '24px',
-          right: '24px',
+          bottom: 'calc(32px + env(safe-area-inset-bottom))',
+          right: 'calc(24px + env(safe-area-inset-right))',
           width: '64px',
           height: '64px',
           borderRadius: '50%',
           background: isListening ? theme.textSecondary : theme.text,
           border: 'none',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
-          transition: 'all 0.3s ease',
-          transform: isListening ? 'scale(1.05)' : 'scale(1)',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          transform: isListening ? 'scale(1.1)' : 'scale(1)',
           animation: isListening ? 'pulse 1.5s infinite' : 'none',
-          zIndex: 100
+          zIndex: 9999,
+          WebkitAppearance: 'none',
+          WebkitTapHighlightColor: 'transparent'
         }}
       >
         <Mic size={26} color={theme.bg} strokeWidth={1.5} />

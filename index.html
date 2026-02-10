@@ -1,29 +1,34 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>balancex</title>
-    
-    <!-- Meta tags para theme-color dinámico -->
-    <meta name="theme-color" content="#ffffff" id="theme-color-meta">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" id="apple-status-bar-meta">
-    
-    <!-- Para dispositivos Apple -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    
-    <!-- Para navegadores Android/Chrome -->
-    <meta name="mobile-web-app-capable" content="yes">
-    
-    <!-- Para navegadores Windows -->
-    <meta name="msapplication-navbutton-color" content="#ffffff" id="ms-navbutton-color">
-    
-    <!-- Para navegadores Safari -->
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>balancex</title>
+
+  <!-- Meta tags para theme-color dinámico y evitar forzar modo oscuro -->
+  <meta name="theme-color" content="#ffffff" id="theme-color-meta">
+  <meta name="color-scheme" content="light">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" id="apple-status-bar-meta">
+
+  <!-- Para dispositivos Apple -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="BalanceX">
+
+  <!-- Para navegadores Android/Chrome -->
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <!-- Para navegadores Windows -->
+  <meta name="msapplication-navbutton-color" content="#ffffff" id="ms-navbutton-color">
+
+  <!-- Para navegadores Safari -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
 </html>
