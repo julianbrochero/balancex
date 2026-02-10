@@ -1426,7 +1426,8 @@ export default function ExpenseTracker() {
 
       {/* Floating Voice Button */}
       <button
-        onClick={isListening ? stopListening : startListening}
+        onClick={startListening}
+        disabled={isListening}
         style={{
           position: 'fixed',
           bottom: '24px',
@@ -1434,7 +1435,7 @@ export default function ExpenseTracker() {
           width: '64px',
           height: '64px',
           borderRadius: '50%',
-          background: isListening ? '#ea4335' : theme.text, // Rojo cuando escucha
+          background: isListening ? theme.textSecondary : theme.text,
           border: 'none',
           boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
           display: 'flex',
@@ -1447,11 +1448,7 @@ export default function ExpenseTracker() {
           zIndex: 100
         }}
       >
-        {isListening ? (
-          <Square size={24} color="#ffffff" fill="#ffffff" />
-        ) : (
-          <Mic size={26} color={theme.bg} strokeWidth={1.5} />
-        )}
+        <Mic size={26} color={theme.bg} strokeWidth={1.5} />
       </button>
 
       {/* Pulse Animation */}
@@ -1475,33 +1472,15 @@ export default function ExpenseTracker() {
           transform: 'translateX(-50%)',
           background: theme.text,
           color: theme.bg,
-          padding: '12px 16px 12px 24px',
+          padding: '12px 24px',
           borderRadius: '24px',
           fontSize: '13px',
           boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
           zIndex: 1000,
           fontWeight: '400',
-          letterSpacing: '0.1px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
+          letterSpacing: '0.1px'
         }}>
           Escuchando... Di "ingreso" o "egreso" + monto
-          <button
-            onClick={stopListening}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              marginLeft: '10px',
-              padding: '4px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            <X size={14} color={theme.bg} />
-          </button>
         </div>
       )}
     </div>
