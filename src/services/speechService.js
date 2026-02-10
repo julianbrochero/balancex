@@ -86,85 +86,150 @@ export function processTranscript(transcript) {
     // Extraer monto (buscar números con diferentes estrategias)
     let amount = 0;
 
-    // Estrategia 1: Buscar "mil" o "miles"
-    const milMatch = text.match(/(\d+\.?\d*)\s*(mil|miles)/i);
-    if (milMatch) {
-        amount = parseFloat(milMatch[1]) * 1000;
-        console.log('💰 Monto detectado (mil):', amount);
+    // Normalizar texto para facilitar búsqueda
+    // Reemplazar "un millón" por "1 millón", "un mil" por "1 mil"
+    let cleanText = text
+        .replace(/\b(un|una)\s+(mill[oó]n|mil)/gi, '1 $2')
+        .replace(/\b(medio)\s+(mill[oó]n)/gi, '0.5 $2');
+
+    // Mapeo de palabras a números
+    const wordNumbers = {
+        'cero': 0, 'un': 1, 'uno': 1, 'una': 1,
+        'dos': 2, 'tres': 3, 'cuatro': 4, 'cinco': 5,
+        'seis': 6, 'siete': 7, 'ocho': 8, 'nueve': 9,
+        'diez': 10, 'once': 11, 'doce': 12, 'trece': 13,
+        'catorce': 14, 'quince': 15, 'dieciséis': 16,
+        'diecisiete': 17, 'dieciocho': 18, 'diecinueve': 19,
+        'veinte': 20, 'veintiuno': 21, 'veintidós': 22, 'veintitrés': 23, 'veinticuatro': 24, 'veinticinco': 25, 'veintiséis': 26, 'veintisiete': 27, 'veintiocho': 28, 'veintinueve': 29,
+        'treinta': 30, 'cuarenta': 40, 'cincuenta': 50, 'sesenta': 60, 'setenta': 70, 'ochenta': 80, 'noventa': 90,
+        'cien': 100, 'ciento': 100, 'doscientos': 200, 'trescientos': 300, 'cuatrocientos': 400, 'quinientos': 500, 'seiscientos': 600, 'setecientos': 700, 'ochocientos': 800, 'novecientos': 900
+    };
+
+    // Estrategia 1: Detección de patrones "Número + Multiplicador" (ej: "10 mil", "diez mil", "1.5 millones")
+    const multipliers = {
+        'mil': 1000,
+        'miles': 1000,
+        'millón': 1000000,
+        'millon': 1000000,
+        'millones': 1000000,
+        'palo': 1000000, // Jerga común
+        'palos': 1000000,
+        'luca': 1000,    // Jerga común
+        'lucas': 1000
+    };
+
+    // Buscar "X mil/millones" donde X puede ser dígitos o palabras
+    // Regex para encontrar el número base antes del multiplicador
+    Object.entries(multipliers).forEach(([multWord, multVal]) => {
+        if (amount > 0) return; // Si ya encontramos, saltar
+
+        // A. Base numérica: "10 mil", "10.5 millones"
+        const regexDigit = new RegExp(`(\\d+[.,]?\\d*)\\s*${multWord}`, 'i');
+        const matchDigit = cleanText.match(regexDigit);
+
+        if (matchDigit) {
+            let numStr = matchDigit[1];
+            // Normalizar separadores: "1.5" -> 1.5, "1,5" -> 1.5
+            numStr = numStr.replace(',', '.');
+            amount = parseFloat(numStr) * multVal;
+            console.log(`💰 Monto detectado (dígito + ${multWord}):`, amount);
+            return;
+        }
+
+        // B. Base en palabras: "diez mil", "veinte millones"
+        // Buscar palabras numéricas seguidas del multiplicador
+        for (const [word, val] of Object.entries(wordNumbers)) {
+            if (cleanText.includes(`${word} ${multWord}`) || cleanText.includes(`${word}${multWord}`)) {
+                amount = val * multVal;
+                console.log(`💰 Monto detectado (palabra "${word}" + ${multWord}):`, amount);
+                return;
+            }
+        }
+    });
+
+    // Estrategia 2: Si no hubo multiplicador, buscar número "suelto" (digits)
+    // Manejar cuidadosamente "10.000" vs "10.00" según locale español
+    if (amount === 0) {
+        // Regex para capturar números con posibles separadores
+        // Captura: 10000 | 10.000 | 10,000 | 10.000,50 | 10000.50
+        const numberPattern = /(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)/g;
+        const matches = cleanText.match(numberPattern);
+
+        if (matches) {
+            // Filtrar y procesar candidatos
+            const candidates = matches.map(m => {
+                // Limpiar el string para parsing
+                let clean = m.trim();
+
+                // Caso especial: "10.000" (sin coma decimal) -> 10000
+                // Caso especial: "10,000" (con coma, posible mil) -> 10000 (si asumimos 3 decimales es raro para precios)
+
+                // Heurística para Español (España/Latam):
+                // . = miles
+                // , = decimales
+                // PERO a veces la API devuelve formato inglés (10,000.00)
+
+                // Contar puntos y comas
+                const dots = (clean.match(/\./g) || []).length;
+                const commas = (clean.match(/,/g) || []).length;
+
+                let val = 0;
+
+                if (dots > 0 && commas > 0) {
+                    // Formato mixto: asumir el último separador es el decimal
+                    // "1.234,50" -> Español
+                    if (clean.lastIndexOf(',') > clean.lastIndexOf('.')) {
+                        val = parseFloat(clean.replace(/\./g, '').replace(',', '.'));
+                    } else {
+                        // "1,234.50" -> Inglés
+                        val = parseFloat(clean.replace(/,/g, ''));
+                    }
+                } else if (dots > 0) {
+                    // Solo puntos: "10.000" o "10.5"
+                    // Si tiene bloques de 3 dígitos (10.000), es miles
+                    if (/^\d{1,3}(\.\d{3})+$/.test(clean)) {
+                        val = parseFloat(clean.replace(/\./g, ''));
+                    } else if (dots === 1 && /\.\d{1,2}$/.test(clean)) {
+                        // "10.50" -> Decimal (formato web/inglés)
+                        val = parseFloat(clean);
+                    } else {
+                        // Ante la duda, si es un solo punto y 3 digitos (1.000), preferimos miles
+                        // "10.000" -> 10000
+                        val = parseFloat(clean.replace(/\./g, ''));
+                    }
+                } else if (commas > 0) {
+                    // Solo comas: "10,5" o "10,000"
+                    // En español coma es decimal, pero "10,000" podría ser 10k?
+                    // Asumiremos coma = decimal estándar
+                    val = parseFloat(clean.replace(',', '.'));
+                } else {
+                    // Solo dígitos
+                    val = parseFloat(clean);
+                }
+
+                return val;
+            }).filter(n => !isNaN(n) && n > 0);
+
+            if (candidates.length > 0) {
+                // Tomar el valor más alto encontrado (para evitar "1" de "1 dia" vs "1000" de monto)
+                // O mejor, tomar el que esté más cerca de patrones de dinero (pendiente)
+                // Por ahora el máximo suele ser correcto
+                amount = Math.max(...candidates);
+                console.log('💰 Monto detectado (número directo):', amount);
+            }
+        }
     }
 
-    // Estrategia 2: Buscar formato con palabras (veinte, treinta, etc)
+    // Estrategia 3: Buscar palabras numéricas simples sin multiplicador ("treinta pesos")
     if (amount === 0) {
-        const wordNumbers = {
-            'uno': 1, 'una': 1, 'un': 1,
-            'dos': 2, 'tres': 3, 'cuatro': 4, 'cinco': 5,
-            'seis': 6, 'siete': 7, 'ocho': 8, 'nueve': 9,
-            'diez': 10, 'once': 11, 'doce': 12, 'trece': 13,
-            'catorce': 14, 'quince': 15, 'dieciséis': 16,
-            'diecisiete': 17, 'dieciocho': 18, 'diecinueve': 19,
-            'veinte': 20, 'treinta': 30, 'cuarenta': 40,
-            'cincuenta': 50, 'sesenta': 60, 'setenta': 70,
-            'ochenta': 80, 'noventa': 90, 'cien': 100,
-            'ciento': 100, 'doscientos': 200, 'trescientos': 300,
-            'cuatrocientos': 400, 'quinientos': 500, 'seiscientos': 600,
-            'setecientos': 700, 'ochocientos': 800, 'novecientos': 900
-        };
-
-        for (const [word, value] of Object.entries(wordNumbers)) {
-            if (text.includes(word + ' mil') || text.includes(word + 'mil')) {
-                amount = value * 1000;
-                console.log('💰 Monto detectado (palabra + mil):', amount);
+        // Buscar palabras seguidas de moneda
+        const moneyWords = ['pesos', 'dólares', 'euros'];
+        for (const [word, val] of Object.entries(wordNumbers)) {
+            const pattern = new RegExp(`\\b${word}\\s+(${moneyWords.join('|')})`, 'i');
+            if (pattern.test(cleanText)) {
+                amount = val;
+                console.log('💰 Monto detectado (palabra simple):', amount);
                 break;
-            } else if (text.includes(word) && !milMatch) {
-                // Buscar combinaciones como "veinte pesos"
-                const regex = new RegExp(`${word}\\s+(?:pesos|dólares|euros|soles)`, 'i');
-                if (regex.test(text)) {
-                    amount = value;
-                    console.log('💰 Monto detectado (palabra):', amount);
-                    break;
-                }
-            }
-        }
-    }
-
-    // Estrategia 3: Buscar números con separadores o simples
-    if (amount === 0) {
-        const numberPatterns = [
-            /(\d{1,3}(?:[.,]\d{3})+\.?\d*)/,  // "5.000" o "5,000" o "5.000,50"
-            /(\d+\.?\d*)/  // Cualquier número con decimales
-        ];
-
-        for (const pattern of numberPatterns) {
-            const matches = text.match(new RegExp(pattern, 'g'));
-            if (matches) {
-                // Tomar el número más grande encontrado (probablemente el monto)
-                const numbers = matches.map(match => {
-                    const cleanNumber = match.replace(/[.,]/g, (match[0] === ',' && match.includes('.')) ? '' : '.');
-                    return parseFloat(cleanNumber);
-                }).filter(num => !isNaN(num) && num > 0);
-
-                if (numbers.length > 0) {
-                    amount = Math.max(...numbers);
-                    console.log('💰 Monto detectado (número):', amount);
-                    break;
-                }
-            }
-        }
-    }
-
-    // Estrategia 4: Buscar después de palabras clave de dinero
-    if (amount === 0) {
-        const moneyKeywords = ['pesos', 'dólares', 'euros', 'soles', 'bs', '$'];
-        for (const keyword of moneyKeywords) {
-            const regex = new RegExp(`${keyword}\\s+(\\d+[.,]?\\d*)`, 'i');
-            const match = text.match(regex);
-            if (match) {
-                const cleanNumber = match[1].replace(/[.,]/g, '.');
-                amount = parseFloat(cleanNumber);
-                if (amount > 0) {
-                    console.log('💰 Monto detectado (después de palabra clave):', amount);
-                    break;
-                }
             }
         }
     }
