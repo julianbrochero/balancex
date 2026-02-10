@@ -15,6 +15,21 @@ export default function ExpenseTracker() {
   const [showMenu, setShowMenu] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('mes');
   const [currentPage, setCurrentPage] = useState('home');
+  const [darkMode, setDarkMode] = useState(false);
+
+  // Theme colors basado en modo oscuro/claro
+  const theme = {
+    bg: darkMode ? '#1a1a1a' : '#ffffff',
+    text: darkMode ? '#ffffff' : '#000000',
+    textSecondary: darkMode ? '#a0a0a0' : '#5f6368',
+    textTertiary: darkMode ? '#808080' : '#9aa0a6',
+    border: darkMode ? '#2a2a2a' : '#f0f0f0',
+    borderStrong: darkMode ? '#404040' : '#e0e0e0',
+    cardBg: darkMode ? '#1e1e1e' : '#fafafa',
+    inputBg: darkMode ? '#252525' : '#ffffff',
+    menuBg: darkMode ? '#1a1a1a' : '#ffffff',
+    overlayBg: darkMode ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.3)'
+  };
 
   // Estado local para verificar autenticación
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -215,16 +230,17 @@ export default function ExpenseTracker() {
 
   // Si está cargando datos iniciales
   if (loading) {
-    return <div style={{ padding: 20, textAlign: 'center' }}>Cargando transacciones...</div>;
+    return <div style={{ padding: 20, textAlign: 'center', color: theme.text }}>Cargando transacciones...</div>;
   }
 
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#ffffff',
+      background: theme.bg,
       fontFamily: '"Google Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       padding: '24px',
-      paddingBottom: '100px'
+      paddingBottom: '80px', // Reducido por el footer
+      transition: 'background 0.3s ease'
     }}>
       {/* Header with Hamburger Menu */}
       <div style={{
@@ -237,7 +253,7 @@ export default function ExpenseTracker() {
         <h1 style={{
           fontSize: '36px',
           fontWeight: '300',
-          color: '#000000',
+          color: theme.text,
           margin: 0,
           letterSpacing: '-0.5px'
         }}>
@@ -259,9 +275,9 @@ export default function ExpenseTracker() {
           onMouseLeave={(e) => e.target.style.opacity = '1'}
         >
           {showMenu ? (
-            <X size={24} color="#000000" strokeWidth={1.5} />
+            <X size={24} color={theme.text} strokeWidth={1.5} />
           ) : (
-            <Menu size={24} color="#000000" strokeWidth={1.5} />
+            <Menu size={24} color={theme.text} strokeWidth={1.5} />
           )}
         </button>
       </div>
@@ -274,8 +290,8 @@ export default function ExpenseTracker() {
         width: '100%',
         maxWidth: '320px',
         height: '100vh',
-        background: '#ffffff',
-        boxShadow: showMenu ? '-2px 0 8px rgba(0,0,0,0.1)' : 'none',
+        background: theme.menuBg,
+        boxShadow: showMenu ? (darkMode ? '-2px 0 12px rgba(0,0,0,0.5)' : '-2px 0 8px rgba(0,0,0,0.1)') : 'none',
         transition: 'right 0.3s ease',
         zIndex: 1000,
         padding: '24px',
@@ -293,7 +309,7 @@ export default function ExpenseTracker() {
           <h2 style={{
             fontSize: '20px',
             fontWeight: '400',
-            color: '#000000',
+            color: theme.text,
             margin: 0,
             letterSpacing: '-0.2px'
           }}>
@@ -311,7 +327,7 @@ export default function ExpenseTracker() {
               justifyContent: 'center'
             }}
           >
-            <X size={24} color="#000000" strokeWidth={1.5} />
+            <X size={24} color={theme.text} strokeWidth={1.5} />
           </button>
         </div>
 
@@ -325,7 +341,7 @@ export default function ExpenseTracker() {
           {/* Navigation */}
           <div style={{
             paddingBottom: '24px',
-            borderBottom: '1px solid #f0f0f0'
+            borderBottom: `1px solid ${theme.border}`
           }}>
             <button
               onClick={() => {
@@ -337,7 +353,7 @@ export default function ExpenseTracker() {
                 padding: '14px 0',
                 background: 'transparent',
                 border: 'none',
-                color: '#000000',
+                color: theme.text,
                 fontSize: '15px',
                 fontWeight: '400',
                 cursor: 'pointer',
@@ -356,10 +372,57 @@ export default function ExpenseTracker() {
             </button>
           </div>
 
+          {/* Dark Mode Toggle */}
+          <div style={{
+            paddingBottom: '24px',
+            borderBottom: `1px solid ${theme.border}`
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '14px 0'
+            }}>
+              <span style={{
+                fontSize: '15px',
+                color: theme.text,
+                fontWeight: '400',
+                letterSpacing: '-0.1px'
+              }}>
+                Modo oscuro
+              </span>
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                style={{
+                  width: '48px',
+                  height: '28px',
+                  borderRadius: '14px',
+                  background: darkMode ? '#34a853' : '#e0e0e0',
+                  border: 'none',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  transition: 'background 0.3s ease'
+                }}
+              >
+                <div style={{
+                  width: '22px',
+                  height: '22px',
+                  borderRadius: '50%',
+                  background: theme.bg,
+                  position: 'absolute',
+                  top: '3px',
+                  left: darkMode ? '23px' : '3px',
+                  transition: 'left 0.3s ease',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                }} />
+              </button>
+            </div>
+          </div>
+
           {/* User Section */}
           <div style={{
             paddingBottom: '24px',
-            borderBottom: '1px solid #f0f0f0'
+            borderBottom: `1px solid ${theme.border}`
           }}>
             <div style={{
               display: 'flex',
@@ -371,17 +434,17 @@ export default function ExpenseTracker() {
                 width: '48px',
                 height: '48px',
                 borderRadius: '50%',
-                background: '#f0f0f0',
+                background: theme.cardBg,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
-                <User size={24} color="#5f6368" strokeWidth={1.5} />
+                <User size={24} color={theme.textSecondary} strokeWidth={1.5} />
               </div>
               <div>
                 <div style={{
                   fontSize: '14px',
-                  color: '#5f6368',
+                  color: theme.textSecondary,
                   marginBottom: '2px',
                   fontWeight: '400'
                 }}>
@@ -400,7 +463,7 @@ export default function ExpenseTracker() {
             }}>
               <div style={{
                 fontSize: '13px',
-                color: '#5f6368',
+                color: theme.textSecondary,
                 marginBottom: '8px',
                 fontWeight: '400',
                 letterSpacing: '0.2px'
@@ -414,8 +477,8 @@ export default function ExpenseTracker() {
                 style={{
                   width: '100%',
                   padding: '14px 16px',
-                  background: '#ffffff',
-                  border: '1px solid #e0e0e0',
+                  background: theme.inputBg,
+                  border: `1px solid ${theme.borderStrong}`,
                   display: 'flex',
                   alignItems: 'center',
                   gap: '12px',
@@ -423,16 +486,16 @@ export default function ExpenseTracker() {
                   transition: 'all 0.2s',
                   fontSize: '14px',
                   fontWeight: '400',
-                  color: '#000000',
+                  color: theme.text,
                   letterSpacing: '0.1px'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#f8f9fa';
-                  e.currentTarget.style.borderColor = '#d0d0d0';
+                  e.currentTarget.style.background = theme.cardBg;
+                  e.currentTarget.style.borderColor = theme.text;
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = '#ffffff';
-                  e.currentTarget.style.borderColor = '#e0e0e0';
+                  e.currentTarget.style.background = theme.inputBg;
+                  e.currentTarget.style.borderColor = theme.borderStrong;
                 }}
               >
                 <svg width="18" height="18" viewBox="0 0 18 18">
@@ -450,8 +513,8 @@ export default function ExpenseTracker() {
                 style={{
                   width: '100%',
                   padding: '14px 16px',
-                  background: '#000000',
-                  border: '1px solid #000000',
+                  background: theme.text,
+                  border: `1px solid ${theme.text}`,
                   display: 'flex',
                   alignItems: 'center',
                   gap: '12px',
@@ -459,15 +522,15 @@ export default function ExpenseTracker() {
                   transition: 'opacity 0.2s',
                   fontSize: '14px',
                   fontWeight: '400',
-                  color: '#ffffff',
+                  color: theme.bg,
                   letterSpacing: '0.1px'
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.opacity = '0.85'}
                 onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
               >
                 <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                  <path d="M13.5 9.25C13.495 8.3 13.78 7.375 14.315 6.595C14.85 5.815 15.61 5.22 16.49 4.885C16.005 4.17 15.355 3.59 14.595 3.195C13.835 2.8 12.99 2.6 12.135 2.615C10.675 2.465 9.255 3.495 8.515 3.495C7.76 3.495 6.605 2.63 5.365 2.655C4.375 2.68 3.415 3.005 2.605 3.59C1.795 4.175 1.17 4.995 0.805 5.945C-1.145 10.095 0.325 16.035 2.195 19.295C3.13 20.895 4.22 22.655 5.46 22.61C6.67 22.56 7.125 21.82 8.595 21.82C10.05 21.82 10.475 22.61 11.74 22.58C13.04 22.56 14.005 20.985 14.91 19.375C15.56 18.31 16.045 17.15 16.35 15.935C15.295 15.495 14.395 14.735 13.77 13.755C13.145 12.775 12.825 11.625 13.85 10.48C13.85 10.07 13.675 9.66 13.5 9.25Z" fill="white" />
-                  <path d="M11.31 1.165C12.125 0.195 12.51 -0.095 12.51 -1.22C12.51 -1.38 12.495 -1.54 12.465 -1.695C11.385 -1.65 10.11 -0.985 9.24 -0.01C8.47 0.84 7.96 1.925 8.045 3.075C9.215 3.165 10.41 2.45 11.31 1.165Z" fill="white" />
+                  <path d="M13.5 9.25C13.495 8.3 13.78 7.375 14.315 6.595C14.85 5.815 15.61 5.22 16.49 4.885C16.005 4.17 15.355 3.59 14.595 3.195C13.835 2.8 12.99 2.6 12.135 2.615C10.675 2.465 9.255 3.495 8.515 3.495C7.76 3.495 6.605 2.63 5.365 2.655C4.375 2.68 3.415 3.005 2.605 3.59C1.795 4.175 1.17 4.995 0.805 5.945C-1.145 10.095 0.325 16.035 2.195 19.295C3.13 20.895 4.22 22.655 5.46 22.61C6.67 22.56 7.125 21.82 8.595 21.82C10.05 21.82 10.475 22.61 11.74 22.58C13.04 22.56 14.005 20.985 14.91 19.375C15.56 18.31 16.045 17.15 16.35 15.935C15.295 15.495 14.395 14.735 13.77 13.755C13.145 12.775 12.825 11.625 13.85 10.48C13.85 10.07 13.675 9.66 13.5 9.25Z" fill={darkMode ? '#000000' : '#ffffff'} />
+                  <path d="M11.31 1.165C12.125 0.195 12.51 -0.095 12.51 -1.22C12.51 -1.38 12.495 -1.54 12.465 -1.695C11.385 -1.65 10.11 -0.985 9.24 -0.01C8.47 0.84 7.96 1.925 8.045 3.075C9.215 3.165 10.41 2.45 11.31 1.165Z" fill={darkMode ? '#000000' : '#ffffff'} />
                 </svg>
                 Apple
               </button>
@@ -479,7 +542,7 @@ export default function ExpenseTracker() {
         {isAuthenticated && (
           <div style={{
             paddingTop: '24px',
-            borderTop: '1px solid #f0f0f0'
+            borderTop: `1px solid ${theme.border}`
           }}>
             <button
               onClick={signOut}
@@ -488,7 +551,7 @@ export default function ExpenseTracker() {
                 padding: '14px',
                 background: 'transparent',
                 border: 'none',
-                color: '#5f6368',
+                color: theme.textSecondary,
                 fontSize: '13px',
                 fontWeight: '400',
                 cursor: 'pointer',
@@ -516,7 +579,7 @@ export default function ExpenseTracker() {
             left: 0,
             width: '100%',
             height: '100vh',
-            background: 'rgba(0,0,0,0.3)',
+            background: theme.overlayBg,
             zIndex: 999,
             transition: 'opacity 0.3s ease'
           }}
@@ -528,7 +591,7 @@ export default function ExpenseTracker() {
         <>
           {/* Balance Card */}
           <div style={{
-            background: '#ffffff',
+            background: theme.bg,
             borderRadius: '0px',
             padding: '0px',
             marginBottom: '48px'
@@ -539,10 +602,10 @@ export default function ExpenseTracker() {
               gap: '12px',
               marginBottom: '12px'
             }}>
-              <Wallet size={24} color="#000000" strokeWidth={1.5} />
+              <Wallet size={24} color={theme.text} strokeWidth={1.5} />
               <span style={{
                 fontSize: '14px',
-                color: '#5f6368',
+                color: theme.textSecondary,
                 fontWeight: '400',
                 letterSpacing: '0.2px'
               }}>
@@ -552,7 +615,7 @@ export default function ExpenseTracker() {
             <div style={{
               fontSize: '64px',
               fontWeight: '300',
-              color: '#000000',
+              color: theme.text,
               letterSpacing: '-2px',
               marginTop: '8px',
               lineHeight: '1'
@@ -577,7 +640,7 @@ export default function ExpenseTracker() {
                   <TrendingUp size={20} color="#34a853" strokeWidth={2} />
                   <span style={{
                     fontSize: '13px',
-                    color: '#5f6368',
+                    color: theme.textSecondary,
                     fontWeight: '400',
                     letterSpacing: '0.2px'
                   }}>
@@ -587,7 +650,7 @@ export default function ExpenseTracker() {
                 <div style={{
                   fontSize: '28px',
                   fontWeight: '400',
-                  color: '#000000',
+                  color: theme.text,
                   letterSpacing: '-0.5px'
                 }}>
                   ${totalIngresos.toFixed(2)}
@@ -603,7 +666,7 @@ export default function ExpenseTracker() {
                   <TrendingDown size={20} color="#ea4335" strokeWidth={2} />
                   <span style={{
                     fontSize: '13px',
-                    color: '#5f6368',
+                    color: theme.textSecondary,
                     fontWeight: '400',
                     letterSpacing: '0.2px'
                   }}>
@@ -613,7 +676,7 @@ export default function ExpenseTracker() {
                 <div style={{
                   fontSize: '28px',
                   fontWeight: '400',
-                  color: '#000000',
+                  color: theme.text,
                   letterSpacing: '-0.5px'
                 }}>
                   ${totalEgresos.toFixed(2)}
@@ -633,7 +696,7 @@ export default function ExpenseTracker() {
               <h2 style={{
                 fontSize: '20px',
                 fontWeight: '400',
-                color: '#000000',
+                color: theme.text,
                 margin: 0,
                 letterSpacing: '-0.2px'
               }}>
@@ -649,7 +712,7 @@ export default function ExpenseTracker() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  color: '#5f6368',
+                  color: theme.textSecondary,
                   fontSize: '13px',
                   fontWeight: '400',
                   transition: 'opacity 0.2s'
@@ -668,7 +731,7 @@ export default function ExpenseTracker() {
                 background: 'transparent',
                 padding: '0',
                 marginBottom: '32px',
-                borderBottom: '1px solid #f0f0f0',
+                borderBottom: `1px solid ${theme.border}`,
                 paddingBottom: '24px'
               }}>
                 <div style={{
@@ -683,9 +746,9 @@ export default function ExpenseTracker() {
                       flex: 1,
                       padding: '14px',
                       background: 'transparent',
-                      color: manualType === 'ingreso' ? '#000000' : '#9aa0a6',
+                      color: manualType === 'ingreso' ? theme.text : theme.textTertiary,
                       border: 'none',
-                      borderBottom: manualType === 'ingreso' ? '2px solid #000000' : '2px solid transparent',
+                      borderBottom: manualType === 'ingreso' ? `2px solid ${theme.text}` : '2px solid transparent',
                       fontSize: '14px',
                       fontWeight: manualType === 'ingreso' ? '500' : '400',
                       cursor: 'pointer',
@@ -702,9 +765,9 @@ export default function ExpenseTracker() {
                       flex: 1,
                       padding: '14px',
                       background: 'transparent',
-                      color: manualType === 'egreso' ? '#000000' : '#9aa0a6',
+                      color: manualType === 'egreso' ? theme.text : theme.textTertiary,
                       border: 'none',
-                      borderBottom: manualType === 'egreso' ? '2px solid #000000' : '2px solid transparent',
+                      borderBottom: manualType === 'egreso' ? `2px solid ${theme.text}` : '2px solid transparent',
                       fontSize: '14px',
                       fontWeight: manualType === 'egreso' ? '500' : '400',
                       cursor: 'pointer',
@@ -728,13 +791,13 @@ export default function ExpenseTracker() {
                     padding: '16px 0',
                     marginBottom: '16px',
                     border: 'none',
-                    borderBottom: '1px solid #e0e0e0',
+                    borderBottom: `1px solid ${theme.borderStrong}`,
                     fontSize: '32px',
                     fontFamily: 'inherit',
                     fontWeight: '300',
                     outline: 'none',
                     background: 'transparent',
-                    color: '#000000',
+                    color: theme.text,
                     boxSizing: 'border-box',
                     letterSpacing: '-0.5px'
                   }}
@@ -749,13 +812,13 @@ export default function ExpenseTracker() {
                     padding: '14px 0',
                     marginBottom: '20px',
                     border: 'none',
-                    borderBottom: '1px solid #e0e0e0',
+                    borderBottom: `1px solid ${theme.borderStrong}`,
                     fontSize: '15px',
                     fontFamily: 'inherit',
                     fontWeight: '400',
                     outline: 'none',
                     background: 'transparent',
-                    color: '#000000',
+                    color: theme.text,
                     boxSizing: 'border-box',
                     letterSpacing: '-0.1px'
                   }}
@@ -775,7 +838,7 @@ export default function ExpenseTracker() {
                     style={{
                       padding: '12px 24px',
                       background: 'transparent',
-                      color: '#5f6368',
+                      color: theme.textSecondary,
                       border: 'none',
                       fontSize: '14px',
                       fontWeight: '400',
@@ -792,8 +855,8 @@ export default function ExpenseTracker() {
                     type="submit"
                     style={{
                       padding: '12px 32px',
-                      background: '#000000',
-                      color: '#ffffff',
+                      background: theme.text,
+                      color: theme.bg,
                       border: 'none',
                       fontSize: '14px',
                       fontWeight: '500',
@@ -811,18 +874,18 @@ export default function ExpenseTracker() {
             )}
 
             {!isAuthenticated ? (
-              <div style={{ textAlign: 'center', marginTop: 50, color: '#666' }}>
+              <div style={{ textAlign: 'center', marginTop: 50, color: theme.textSecondary }}>
                 Inicia sesión para ver tus movimientos
               </div>
             ) : transactions.length === 0 ? (
               <div style={{
                 textAlign: 'center',
                 padding: '64px 24px',
-                color: '#5f6368',
+                color: theme.textSecondary,
                 fontSize: '14px'
               }}>
                 <p style={{ margin: 0, fontWeight: '400' }}>No hay movimientos aún</p>
-                <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: '#9aa0a6' }}>
+                <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: theme.textTertiary }}>
                   Presiona el micrófono o agrega manualmente
                 </p>
               </div>
@@ -832,8 +895,8 @@ export default function ExpenseTracker() {
                   <div
                     key={transaction.id}
                     style={{
-                      background: '#ffffff',
-                      borderBottom: '1px solid #f0f0f0',
+                      background: theme.bg,
+                      borderBottom: `1px solid ${theme.border}`,
                       padding: '20px 0',
                       display: 'flex',
                       justifyContent: 'space-between',
@@ -849,7 +912,7 @@ export default function ExpenseTracker() {
                       <div>
                         <div style={{
                           fontSize: '15px',
-                          color: '#000000',
+                          color: theme.text,
                           marginBottom: '4px',
                           fontWeight: '400',
                           letterSpacing: '-0.1px'
@@ -858,7 +921,7 @@ export default function ExpenseTracker() {
                         </div>
                         <div style={{
                           fontSize: '12px',
-                          color: '#9aa0a6',
+                          color: theme.textTertiary,
                           letterSpacing: '0.2px'
                         }}>
                           {formatDate(transaction.created_at)}
@@ -869,13 +932,13 @@ export default function ExpenseTracker() {
                       <div style={{
                         fontSize: '18px',
                         fontWeight: '400',
-                        color: '#000000',
+                        color: theme.text,
                         letterSpacing: '-0.3px'
                       }}>
                         {transaction.type === 'ingreso' ? '+' : '−'}${transaction.amount.toFixed(2)}
                       </div>
                       <button onClick={() => deleteTransaction(transaction.id)} style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}>
-                        <Trash2 size={16} color="#ccc" />
+                        <Trash2 size={16} color={theme.textTertiary} />
                       </button>
                     </div>
                   </div>
@@ -890,7 +953,7 @@ export default function ExpenseTracker() {
           <div style={{
             paddingBottom: '24px',
             marginBottom: '32px',
-            borderBottom: '1px solid #f0f0f0'
+            borderBottom: `1px solid ${theme.border}`
           }}>
             <div style={{
               display: 'flex',
@@ -909,10 +972,10 @@ export default function ExpenseTracker() {
                   onClick={() => setSelectedPeriod(period.value)}
                   style={{
                     padding: '12px 24px',
-                    background: selectedPeriod === period.value ? '#000000' : 'transparent',
-                    color: selectedPeriod === period.value ? '#ffffff' : '#5f6368',
+                    background: selectedPeriod === period.value ? theme.text : 'transparent',
+                    color: selectedPeriod === period.value ? theme.bg : theme.textSecondary,
                     border: 'none',
-                    borderBottom: selectedPeriod === period.value ? 'none' : '1px solid #e0e0e0',
+                    borderBottom: selectedPeriod === period.value ? 'none' : `1px solid ${theme.borderStrong}`,
                     fontSize: '14px',
                     fontWeight: selectedPeriod === period.value ? '500' : '400',
                     cursor: 'pointer',
@@ -922,12 +985,12 @@ export default function ExpenseTracker() {
                   }}
                   onMouseEnter={(e) => {
                     if (selectedPeriod !== period.value) {
-                      e.currentTarget.style.color = '#000000';
+                      e.currentTarget.style.color = theme.text;
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (selectedPeriod !== period.value) {
-                      e.currentTarget.style.color = '#5f6368';
+                      e.currentTarget.style.color = theme.textSecondary;
                     }
                   }}
                 >
@@ -943,7 +1006,7 @@ export default function ExpenseTracker() {
           }}>
             <div style={{
               fontSize: '14px',
-              color: '#5f6368',
+              color: theme.textSecondary,
               marginBottom: '16px',
               fontWeight: '400',
               letterSpacing: '0.2px'
@@ -954,7 +1017,7 @@ export default function ExpenseTracker() {
             <div style={{
               fontSize: '56px',
               fontWeight: '300',
-              color: '#000000',
+              color: theme.text,
               letterSpacing: '-2px',
               marginBottom: '40px',
               lineHeight: '1'
@@ -969,7 +1032,7 @@ export default function ExpenseTracker() {
             }}>
               <div style={{
                 paddingBottom: '24px',
-                borderBottom: '1px solid #f0f0f0'
+                borderBottom: `1px solid ${theme.border}`
               }}>
                 <div style={{
                   display: 'flex',
@@ -980,7 +1043,7 @@ export default function ExpenseTracker() {
                   <TrendingUp size={24} color="#34a853" strokeWidth={2} />
                   <span style={{
                     fontSize: '14px',
-                    color: '#5f6368',
+                    color: theme.textSecondary,
                     fontWeight: '400',
                     letterSpacing: '0.2px'
                   }}>
@@ -990,7 +1053,7 @@ export default function ExpenseTracker() {
                 <div style={{
                   fontSize: '40px',
                   fontWeight: '300',
-                  color: '#000000',
+                  color: theme.text,
                   letterSpacing: '-1px'
                 }}>
                   ${totalIngresos.toFixed(2)}
@@ -999,7 +1062,7 @@ export default function ExpenseTracker() {
 
               <div style={{
                 paddingBottom: '24px',
-                borderBottom: '1px solid #f0f0f0'
+                borderBottom: `1px solid ${theme.border}`
               }}>
                 <div style={{
                   display: 'flex',
@@ -1010,7 +1073,7 @@ export default function ExpenseTracker() {
                   <TrendingDown size={24} color="#ea4335" strokeWidth={2} />
                   <span style={{
                     fontSize: '14px',
-                    color: '#5f6368',
+                    color: theme.textSecondary,
                     fontWeight: '400',
                     letterSpacing: '0.2px'
                   }}>
@@ -1020,7 +1083,7 @@ export default function ExpenseTracker() {
                 <div style={{
                   fontSize: '40px',
                   fontWeight: '300',
-                  color: '#000000',
+                  color: theme.text,
                   letterSpacing: '-1px'
                 }}>
                   ${totalEgresos.toFixed(2)}
@@ -1030,7 +1093,7 @@ export default function ExpenseTracker() {
               <div>
                 <div style={{
                   fontSize: '13px',
-                  color: '#5f6368',
+                  color: theme.textSecondary,
                   marginBottom: '16px',
                   fontWeight: '400',
                   letterSpacing: '0.2px'
@@ -1046,8 +1109,8 @@ export default function ExpenseTracker() {
             onClick={() => setCurrentPage('home')}
             style={{
               padding: '14px 28px',
-              background: '#000000',
-              color: '#ffffff',
+              background: theme.text,
+              color: theme.bg,
               border: 'none',
               fontSize: '14px',
               fontWeight: '500',
@@ -1069,12 +1132,12 @@ export default function ExpenseTracker() {
         disabled={isListening}
         style={{
           position: 'fixed',
-          bottom: '24px',
+          bottom: '80px', // Ajustado por el footer
           right: '24px',
           width: '64px',
           height: '64px',
           borderRadius: '50%',
-          background: isListening ? '#5f6368' : '#000000',
+          background: isListening ? theme.textSecondary : theme.text,
           border: 'none',
           boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
           display: 'flex',
@@ -1083,11 +1146,64 @@ export default function ExpenseTracker() {
           cursor: 'pointer',
           transition: 'all 0.3s ease',
           transform: isListening ? 'scale(1.05)' : 'scale(1)',
-          animation: isListening ? 'pulse 1.5s infinite' : 'none'
+          animation: isListening ? 'pulse 1.5s infinite' : 'none',
+          zIndex: 100
         }}
       >
-        <Mic size={26} color="#ffffff" strokeWidth={1.5} />
+        <Mic size={26} color={theme.bg} strokeWidth={1.5} />
       </button>
+
+      {/* Footer */}
+      <footer style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        width: '100%',
+        background: theme.bg,
+        borderTop: `1px solid ${theme.border}`,
+        padding: '20px 24px',
+        zIndex: 50,
+        transition: 'background 0.3s ease, border-color 0.3s ease'
+      }}>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <span style={{
+              fontSize: '11px',
+              color: theme.textTertiary,
+              fontWeight: '400',
+              letterSpacing: '0.3px',
+              textTransform: 'uppercase'
+            }}>
+              Powered by
+            </span>
+            <span style={{
+              fontSize: '14px',
+              color: theme.text,
+              fontWeight: '600',
+              letterSpacing: '0.5px'
+            }}>
+              QORA DATA
+            </span>
+          </div>
+          <div style={{
+            fontSize: '10px',
+            color: theme.textTertiary,
+            fontWeight: '400',
+            letterSpacing: '0.2px'
+          }}>
+            © 2026 • Financial Management Platform
+          </div>
+        </div>
+      </footer>
 
       {/* Pulse Animation */}
       <style>{`
@@ -1105,11 +1221,11 @@ export default function ExpenseTracker() {
       {isListening && (
         <div style={{
           position: 'fixed',
-          bottom: '100px',
+          bottom: '160px', // Ajustado por el footer y botón de voz
           left: '50%',
           transform: 'translateX(-50%)',
-          background: '#000000',
-          color: '#ffffff',
+          background: theme.text,
+          color: theme.bg,
           padding: '12px 24px',
           borderRadius: '24px',
           fontSize: '13px',
