@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Mic, Plus, TrendingUp, TrendingDown, Wallet, Menu, X, LogOut, User, Calendar, Trash2 } from 'lucide-react';
 import { supabase } from './lib/supabase';
-import { useTransactions } from './hooks/useTransactions'; // Backend real
-import { initSpeechRecognition, processTranscript } from './services/speechService'; // IA de voz
+import { useTransactions } from './hooks/useTransactions';
+import { initSpeechRecognition, processTranscript } from './services/speechService';
 
 export default function ExpenseTracker() {
-  // Conectamos con el Backend (Supabase)
   const { transactions, loading, user, addTransaction: addTransactionToBackend, deleteTransaction } = useTransactions();
-
-  // Estados de tu interfaz original
   const [isListening, setIsListening] = useState(false);
   const [recognition, setRecognition] = useState(null);
   const [showManualInput, setShowManualInput] = useState(false);
@@ -16,10 +13,23 @@ export default function ExpenseTracker() {
   const [manualAmount, setManualAmount] = useState('');
   const [manualDescription, setManualDescription] = useState('');
   const [showMenu, setShowMenu] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState('mes'); // 'dia', 'mes', 'mes-pasado', 'año'
-  const [currentPage, setCurrentPage] = useState('home'); // 'home', 'resumen'
+  const [selectedPeriod, setSelectedPeriod] = useState('mes');
+  const [currentPage, setCurrentPage] = useState('home');
 
-  // Inicializar reconocimiento de voz (Versión Potenciada)
+  // Estado local para verificar autenticación
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Sincronizar estado de autenticación
+  useEffect(() => {
+    if (user) {
+      setIsAuthenticated(true);
+      console.log('✅ Usuario autenticado:', user.email);
+    } else {
+      setIsAuthenticated(false);
+    }
+  }, [user]);
+
+  // Inicializar reconocimiento de voz
   useEffect(() => {
     const recognitionInstance = initSpeechRecognition();
 
@@ -30,8 +40,10 @@ export default function ExpenseTracker() {
         setIsListening(false);
       };
 
-      recognitionInstance.onerror = () => {
+      recognitionInstance.onerror = (event) => {
+        console.error('Error en reconocimiento de voz:', event.error);
         setIsListening(false);
+        alert(`Error de voz: ${event.error}`);
       };
 
       recognitionInstance.onend = () => {
@@ -42,26 +54,37 @@ export default function ExpenseTracker() {
     }
   }, []);
 
-  // Procesamiento de voz inteligente (Mejorado con nuestro servicio)
+  // Procesamiento de voz inteligente
   const processVoiceInput = (transcript) => {
-    console.log("Procesando voz:", transcript);
-    // Usamos el servicio inteligente que detecta "5 mil", categorías, etc.
+    console.log("🎤 Voz detectada:", transcript);
+
+    if (!isAuthenticated) {
+      alert("Debes iniciar sesión para guardar datos por voz.");
+      return;
+    }
+
     const { type, amount, description, category } = processTranscript(transcript);
 
     if (amount > 0) {
       addTransaction(type, amount, description, category);
     } else {
-      alert("No entendí el monto. Intenta decir: 'Gasté 5000 en comida'");
+      alert("No pude entender el monto. Intenta decir: 'Gasté 5000 en comida' o 'Ingresé 3000 por mi trabajo'");
     }
   };
 
-  // Función para agregar transacción (Conectada a Supabase)
+  // Función para agregar transacción
   const addTransaction = async (type, amount, description, category = 'otro') => {
-    if (!user) {
+    if (!isAuthenticated) {
       alert("Debes iniciar sesión para guardar datos.");
       return;
     }
-    await addTransactionToBackend(type, amount, description, category);
+
+    const result = await addTransactionToBackend(type, amount, description, category);
+    if (result) {
+      console.log('✅ Transacción guardada exitosamente');
+    } else {
+      console.error('❌ Error al guardar transacción');
+    }
   };
 
   const handleManualSubmit = (e) => {
@@ -79,16 +102,24 @@ export default function ExpenseTracker() {
   };
 
   const startListening = () => {
-    if (recognition) {
-      // Verificación de seguridad antes de escuchar
-      if (!user) {
-        alert("Inicia sesión para usar la voz.");
-        return;
-      }
+    if (!recognition) {
+      alert("Tu navegador no soporta reconocimiento de voz.");
+      return;
+    }
+
+    if (!isAuthenticated) {
+      alert("⚠️ Debes iniciar sesión para usar el micrófono.");
+      return;
+    }
+
+    try {
       setIsListening(true);
       recognition.start();
-    } else {
-      alert("Tu navegador no soporta voz.");
+      console.log('🎤 Escuchando...');
+    } catch (error) {
+      console.error('Error al iniciar reconocimiento de voz:', error);
+      setIsListening(false);
+      alert("Error al acceder al micrófono. Verifica los permisos.");
     }
   };
 
@@ -112,7 +143,7 @@ export default function ExpenseTracker() {
     setShowMenu(false);
   };
 
-  // Filtros (Tu lógica original adaptada a fechas reales)
+  // Filtros
   const filterTransactionsByPeriod = () => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -122,7 +153,6 @@ export default function ExpenseTracker() {
     const startOfYear = new Date(now.getFullYear(), 0, 1);
 
     return transactions.filter(t => {
-      // Importante: Supabase devuelve 'created_at', convertimos a Date
       const transactionDate = new Date(t.created_at);
 
       switch (selectedPeriod) {
@@ -173,7 +203,6 @@ export default function ExpenseTracker() {
     }
   };
 
-  // Formateo de fecha para mostrar en la lista
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('es-ES', {
       day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
@@ -356,14 +385,14 @@ export default function ExpenseTracker() {
                   marginBottom: '2px',
                   fontWeight: '400'
                 }}>
-                  {user ? user.email : 'No has iniciado sesión'}
+                  {isAuthenticated ? user.email : 'No has iniciado sesión'}
                 </div>
               </div>
             </div>
           </div>
 
           {/* Sign In Options */}
-          {!user && (
+          {!isAuthenticated && (
             <div style={{
               display: 'flex',
               flexDirection: 'column',
@@ -447,7 +476,7 @@ export default function ExpenseTracker() {
         </div>
 
         {/* Menu Footer */}
-        {user && (
+        {isAuthenticated && (
           <div style={{
             paddingTop: '24px',
             borderTop: '1px solid #f0f0f0'
@@ -781,7 +810,7 @@ export default function ExpenseTracker() {
               </form>
             )}
 
-            {!user ? (
+            {!isAuthenticated ? (
               <div style={{ textAlign: 'center', marginTop: 50, color: '#666' }}>
                 Inicia sesión para ver tus movimientos
               </div>
@@ -836,7 +865,6 @@ export default function ExpenseTracker() {
                         </div>
                       </div>
                     </div>
-                    {/* Boton de eliminar (agregado pequeño detalle de UX) */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{
                         fontSize: '18px',

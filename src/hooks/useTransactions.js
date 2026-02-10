@@ -13,10 +13,12 @@ export function useTransactions() {
     // Obtener usuario actual
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
+            console.log('🔍 Sesión obtenida:', session);
             setUser(session?.user ?? null);
         });
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            console.log('🔄 Cambio de estado de autenticación:', session?.user?.email);
             setUser(session?.user ?? null);
         });
 
@@ -26,8 +28,10 @@ export function useTransactions() {
     // Cargar transacciones del usuario
     useEffect(() => {
         if (user) {
+            console.log('👤 Usuario disponible, cargando transacciones:', user.email);
             loadTransactions();
         } else {
+            console.log('👤 No hay usuario, limpiando transacciones');
             setTransactions([]);
             setLoading(false);
         }
@@ -38,6 +42,8 @@ export function useTransactions() {
             setLoading(true);
             setError(null);
 
+            console.log('📋 Cargando transacciones para user_id:', user?.id);
+
             const { data, error: fetchError } = await supabase
                 .from('transactions')
                 .select('*')
@@ -46,9 +52,10 @@ export function useTransactions() {
 
             if (fetchError) throw fetchError;
 
+            console.log('✅ Transacciones cargadas:', data?.length || 0);
             setTransactions(data || []);
         } catch (err) {
-            console.error('Error cargando transacciones:', err);
+            console.error('❌ Error cargando transacciones:', err);
             setError(err.message);
         } finally {
             setLoading(false);
@@ -57,11 +64,14 @@ export function useTransactions() {
 
     const addTransaction = async (type, amount, description, category = 'otro') => {
         if (!user) {
+            console.error('❌ Usuario no autenticado al intentar guardar');
             alert('Debes iniciar sesión para guardar transacciones');
             return null;
         }
 
         try {
+            console.log('➕ Guardando transacción:', { type, amount, description, category });
+
             const newTransaction = {
                 user_id: user.id,
                 type,
@@ -86,16 +96,22 @@ export function useTransactions() {
             return data;
 
         } catch (err) {
-            console.error('Error guardando transacción:', err);
+            console.error('❌ Error guardando transacción:', err);
             setError(err.message);
+            alert('Error al guardar la transacción. Intenta nuevamente.');
             return null;
         }
     };
 
     const deleteTransaction = async (id) => {
-        if (!user) return;
+        if (!user) {
+            console.error('❌ Usuario no autenticado al intentar eliminar');
+            return;
+        }
 
         try {
+            console.log('🗑️ Eliminando transacción:', id);
+
             const { error: deleteError } = await supabase
                 .from('transactions')
                 .delete()
@@ -110,7 +126,7 @@ export function useTransactions() {
             console.log('✅ Transacción eliminada');
 
         } catch (err) {
-            console.error('Error eliminando transacción:', err);
+            console.error('❌ Error eliminando transacción:', err);
             setError(err.message);
         }
     };
