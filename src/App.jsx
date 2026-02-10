@@ -129,8 +129,13 @@ export default function ExpenseTracker() {
 
       recognitionInstance.onresult = (event) => {
         console.log('🎤 Resultado recibido:', event);
-        if (event.results && event.results[0] && event.results[0][0]) {
-          const transcript = event.results[0][0].transcript;
+
+        let transcript = '';
+        if (event.results && event.results[0]) {
+          transcript = event.results[0][0].transcript;
+        }
+
+        if (transcript) {
           console.log('🎤 Texto transcrito:', transcript);
           if (processVoiceInputRef.current) {
             processVoiceInputRef.current(transcript);
@@ -185,6 +190,34 @@ export default function ExpenseTracker() {
       alert('Error al configurar el reconocimiento de voz. Recarga la página.');
     }
   }, []);
+
+  // Efecto para detener grabación al salir de la app (tab background)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && recognition) {
+        console.log('🛑 App en background: Deteniendo reconocimiento de voz');
+        recognition.abort();
+        setIsListening(false);
+      }
+    };
+
+    // También manejar cuando la ventana pierde foco (opcional, pero ayuda en desktop)
+    const handleBlur = () => {
+      if (isListening && recognition) {
+        console.log('🛑 Ventana sin foco: Deteniendo reconocimiento de voz');
+        recognition.abort();
+        setIsListening(false);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBlur);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [recognition, isListening]);
 
   // Procesamiento de voz inteligente
   const processVoiceInput = async (transcript) => {
