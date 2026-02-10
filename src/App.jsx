@@ -143,6 +143,10 @@ export default function ExpenseTracker() {
         } else {
           console.error('❌ No se pudo obtener el texto transcrito');
         }
+
+        // SOLUCIÓN 4: Detener explícitamente al recibir resultados
+        console.log('🛑 Resultado recibido, deteniendo reconocimiento explícitamente');
+        recognitionInstance.abort(); // Usamos abort() para matar el hard stream inmediatamente
         setIsListening(false);
       };
 
@@ -195,8 +199,8 @@ export default function ExpenseTracker() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden && recognition) {
-        console.log('🛑 App en background: Deteniendo reconocimiento de voz');
-        recognition.abort();
+        console.log('🛑 App en background: Abortando reconocimiento de voz (VISIBILITY)');
+        recognition.abort(); // Abort es más fuerte que stop
         setIsListening(false);
       }
     };
@@ -204,7 +208,7 @@ export default function ExpenseTracker() {
     // También manejar cuando la ventana pierde foco (opcional, pero ayuda en desktop)
     const handleBlur = () => {
       if (isListening && recognition) {
-        console.log('🛑 Ventana sin foco: Deteniendo reconocimiento de voz');
+        console.log('🛑 Ventana sin foco: Abortando reconocimiento de voz (BLUR)');
         recognition.abort();
         setIsListening(false);
       }
@@ -300,7 +304,7 @@ export default function ExpenseTracker() {
 
     if (!isUserAuthenticated) {
       alert("⚠️ No se detecta una sesión activa. Por favor abre el menú (arriba a la derecha) y verifica que has iniciado sesión con Google.");
-      setShowMenu(true); // Abrir menú automáticamente para ayudar al usuario
+      setShowMenu(true);
       return;
     }
 
@@ -309,6 +313,17 @@ export default function ExpenseTracker() {
       setIsListening(true);
       recognition.start();
       console.log('🎤 Escuchando activado');
+
+      // SOLUCIÓN 1: Timeout de seguridad (6-8 segundos)
+      // Si el usuario no dice nada, cortamos para liberar el micrófono
+      setTimeout(() => {
+        if (isListening) {
+          console.log('⏰ Tiempo de espera agotado, deteniendo micrófono...');
+          recognition.stop();
+          setIsListening(false);
+        }
+      }, 8000);
+
     } catch (error) {
       console.error('❌ Error al iniciar reconocimiento de voz:', error);
       setIsListening(false);

@@ -220,17 +220,95 @@ export function processTranscript(transcript) {
         }
     }
 
-    // Estrategia 3: Buscar palabras numéricas simples sin multiplicador ("treinta pesos")
+    // Estrategia 3: Parser avanzado de números hablados compuestos
+    // Ejemplo: "dos mil setecientos cuarenta y dos" -> 2742
     if (amount === 0) {
-        // Buscar palabras seguidas de moneda
-        const moneyWords = ['pesos', 'dólares', 'euros'];
-        for (const [word, val] of Object.entries(wordNumbers)) {
-            const pattern = new RegExp(`\\b${word}\\s+(${moneyWords.join('|')})`, 'i');
-            if (pattern.test(cleanText)) {
-                amount = val;
-                console.log('💰 Monto detectado (palabra simple):', amount);
-                break;
+        // Mapa extendido de palabras numéricas
+        const extendedWordNumbers = {
+            'cero': 0, 'un': 1, 'uno': 1, 'una': 1,
+            'dos': 2, 'tres': 3, 'cuatro': 4, 'cinco': 5,
+            'seis': 6, 'siete': 7, 'ocho': 8, 'nueve': 9,
+            'diez': 10, 'once': 11, 'doce': 12, 'trece': 13,
+            'catorce': 14, 'quince': 15, 'dieciséis': 16,
+            'diecisiete': 17, 'dieciocho': 18, 'diecinueve': 19,
+            'veinte': 20, 'veintiuno': 21, 'veintidós': 22, 'veintitrés': 23, 'veinticuatro': 24, 'veinticinco': 25, 'veintiséis': 26, 'veintisiete': 27, 'veintiocho': 28, 'veintinueve': 29,
+            'treinta': 30, 'cuarenta': 40, 'cincuenta': 50, 'sesenta': 60, 'setenta': 70, 'ochenta': 80, 'noventa': 90,
+            'cien': 100, 'ciento': 100, 'doscientos': 200, 'trescientos': 300, 'cuatrocientos': 400, 'quinientos': 500, 'seiscientos': 600, 'setecientos': 700, 'ochocientos': 800, 'novecientos': 900,
+            'mil': 1000, 'miles': 1000,
+            'millón': 1000000, 'millones': 1000000
+        };
+
+        const tokens = cleanText.split(/\s+/);
+        let currentNumber = 0;
+        let finalAmount = 0;
+        let currentBlock = 0; // Para acumular dentro de bloques de mil/millón
+
+        // Iterar tokens para reconstruir número hablado
+        // Lógica simple de acumulación
+        let isParsingNumber = false;
+
+        for (let i = 0; i < tokens.length; i++) {
+            let token = tokens[i].replace(/[.,]/g, ''); // Limpiar token
+            let val = extendedWordNumbers[token];
+
+            // Manejo de "y" (e.g., cuarenta y dos)
+            if (token === 'y' && isParsingNumber) continue;
+
+            // Manejo de dígitos sueltos mezclados (e.g., "2 mil")
+            if (val === undefined && /^\d+$/.test(token)) {
+                val = parseInt(token, 10);
             }
+
+            if (val !== undefined) {
+                isParsingNumber = true;
+                if (val === 1000) {
+                    // Multiplicador MIL
+                    // Si no hay nada acumulado (ej: "mil pesos"), asumimos 1000
+                    let multiplier = (currentBlock === 0) ? 1 : currentBlock;
+                    finalAmount += multiplier * 1000;
+                    currentBlock = 0;
+                } else if (val === 1000000) {
+                    // Multiplicador MILLÓN
+                    let multiplier = (currentBlock === 0) ? 1 : currentBlock;
+                    finalAmount += multiplier * 1000000;
+                    currentBlock = 0;
+                } else if (val > currentBlock && currentBlock !== 0 && val >= 100) {
+                    // Caso raro multiplicativo menor? (cien mil vs doscientos)
+                    // Normalmente se suma: doscientos (200) + uno (1)
+                    currentBlock += val;
+                } else {
+                    // Suma normal: treinta (30) + dos (2) -> 32
+                    currentBlock += val;
+                }
+            } else if (isParsingNumber) {
+                // Fin de la secuencia numérica
+                // Comprobamos si la siguiente palabra es moneda o contexto de transacción
+                const nextContext = tokens.slice(i, i + 3).join(' ');
+                // Si encontramos una palabra que no es número, asumimos que terminó el número
+                // Sumamos lo que quede en el bloque
+                finalAmount += currentBlock;
+
+                if (finalAmount > amount) {
+                    amount = finalAmount;
+                }
+
+                // Reiniciar para buscar otros números si los hubiera
+                currentBlock = 0;
+                finalAmount = 0;
+                isParsingNumber = false;
+            }
+        }
+
+        // Al final del loop, si quedó algo pendiente
+        if (isParsingNumber) {
+            finalAmount += currentBlock;
+            if (finalAmount > amount) {
+                amount = finalAmount;
+            }
+        }
+
+        if (amount > 0) {
+            console.log('💰 Monto detectado (parser compuesto):', amount);
         }
     }
 
